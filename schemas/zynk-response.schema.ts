@@ -84,6 +84,11 @@ export const zynkGetFundingAccountResponseSchema = Joi.object({
   data: fundingAccountDataSchema.required(),
 });
 
+// Schema for Plaid link token response
+export const zynkPlaidLinkTokenResponseSchema = Joi.object({
+  plaid_token: Joi.string().required(),
+});
+
 /**
  * Validates a Zynk API response against a schema
  * Throws AppError if validation fails

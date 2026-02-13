@@ -9,6 +9,7 @@ import {
   zynkKycStatusResponseSchema,
   zynkCreateFundingAccountResponseSchema,
   zynkGetFundingAccountResponseSchema,
+  zynkPlaidLinkTokenResponseSchema,
 } from "../schemas/zynk-response.schema";
 
 interface ZynkEntityData {
@@ -105,6 +106,10 @@ interface ZynkCreateFundingAccountResponse {
 interface ZynkGetFundingAccountResponse {
   success: boolean;
   data: ZynkFundingAccountData;
+}
+
+interface ZynkPlaidLinkTokenResponse {
+  plaid_token: string;
 }
 
 class ZynkRepository {
@@ -261,6 +266,31 @@ class ZynkRepository {
     }
   }
 
+  async generatePlaidLinkToken(
+    entityId: string
+  ): Promise<ZynkPlaidLinkTokenResponse> {
+    const jurisdictionId = process.env.ZYNK_JURISDICTION_ID;
+
+    if (!jurisdictionId) {
+      throw new AppError(500, "ZYNK_JURISDICTION_ID is not configured");
+    }
+
+    try {
+      const response = await zynkClient.post<ZynkPlaidLinkTokenResponse>(
+        `/api/v1/transformer/entity/${encodeURIComponent(
+          entityId
+        )}/generate/plaid-link-token`,
+        { jurisdictionId, createNewToken: true }
+      );
+      return validateZynkResponse<ZynkPlaidLinkTokenResponse>(
+        response.data,
+        zynkPlaidLinkTokenResponseSchema,
+        "Failed to generate Plaid link token"
+      );
+    } catch (error) {
+      handleZynkError(error, "Failed to generate Plaid link token");
+    }
+  }
 }
 
 export default new ZynkRepository();
@@ -272,4 +302,5 @@ export type {
   ZynkFundingAccountData,
   ZynkCreateFundingAccountResponse,
   ZynkGetFundingAccountResponse,
+  ZynkPlaidLinkTokenResponse,
 };

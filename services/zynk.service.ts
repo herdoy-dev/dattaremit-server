@@ -250,6 +250,37 @@ class ZynkService {
     return response.data.data;
   }
 
+  async generatePlaidLinkToken(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    if (!user.zynkEntityId) {
+      throw new AppError(
+        400,
+        "User does not have a Zynk entity. Create entity first."
+      );
+    }
+
+    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId);
+  }
+
+  async updatePlaidLinkToken(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    if (!user.zynkEntityId) {
+      throw new AppError(
+        400,
+        "User does not have a Zynk entity. Create entity first."
+      );
+    }
+
+    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId);
+  }
 }
 
 export default new ZynkService();

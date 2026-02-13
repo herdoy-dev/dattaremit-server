@@ -29,4 +29,15 @@ router.post(
   zynkController.deactivateFundingAccount as RequestHandler
 );
 
+router.post(
+  "/plaid-link-token",
+  isApproved,
+  zynkController.generatePlaidLinkToken as RequestHandler
+);
+router.put(
+  "/plaid-link-token",
+  isApproved,
+  zynkController.updatePlaidLinkToken as RequestHandler
+);
+
 export default router;

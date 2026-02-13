@@ -148,6 +148,49 @@ class ZynkController {
       next(error);
     }
   }
+  async generatePlaidLinkToken(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const dbUser = req.user;
+      const result = await zynkService.generatePlaidLinkToken(dbUser.id);
+      res
+        .status(200)
+        .json(
+          new APIResponse(
+            true,
+            "Plaid link token generated successfully",
+            result
+          )
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updatePlaidLinkToken(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const dbUser = req.user;
+      const result = await zynkService.updatePlaidLinkToken(dbUser.id);
+      res
+        .status(200)
+        .json(
+          new APIResponse(
+            true,
+            "Plaid link token updated successfully",
+            result
+          )
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new ZynkController();
