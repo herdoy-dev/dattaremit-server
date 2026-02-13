@@ -2,7 +2,6 @@ import { ActivityStatus, ActivityType } from "../generated/prisma/client";
 import activityLogger from "../lib/activity-logger";
 import AppError from "../lib/AppError";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
-import addressRepository from "../repositories/address.repository";
 import userRepository from "../repositories/user.repository";
 import type { ZynkEntityData } from "../repositories/zynk.repository";
 import zynkRepository from "../repositories/zynk.repository";
@@ -14,38 +13,11 @@ class ZynkService {
     if (!user) {
       throw new AppError(404, "User not found");
     }
-    const addresses = await addressRepository.findAllByUserId(userId);
-    // Prefer PERMANENT address for KYC, fall back to PRESENT
-    const address =
-      addresses.find((a: { type?: string }) => a.type === "PERMANENT") ||
-      addresses[0];
-
-    if (!address) {
-      throw new AppError(
-        400,
-        "User must have an address to create a Zynk entity"
-      );
-    }
-
-    // dateOfBirth is now a decrypted ISO string, extract just the date part
-    const dateOfBirth = user.dateOfBirth.split("T")[0] as string;
 
     const entityData: ZynkEntityData = {
-      type: "individual",
-      firstName: user.firstName,
-      lastName: user.lastName,
       email: user.email,
       phoneNumberPrefix: user.phoneNumberPrefix.replace("+", ""),
       phoneNumber: user.phoneNumber,
-      dateOfBirth,
-      permanentAddress: {
-        addressLine1: address.addressLine1,
-        addressLine2: address.addressLine2 || undefined,
-        city: address.city,
-        state: address.state,
-        country: address.country,
-        postalCode: address.postalCode,
-      },
     };
 
     // Call external API first (cannot be rolled back)

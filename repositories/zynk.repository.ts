@@ -12,21 +12,9 @@ import {
 } from "../schemas/zynk-response.schema";
 
 interface ZynkEntityData {
-  type: string;
-  firstName: string;
-  lastName: string;
   email: string;
   phoneNumberPrefix: string;
   phoneNumber: string;
-  dateOfBirth: string;
-  permanentAddress: {
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    country: string;
-    postalCode: string;
-  };
 }
 
 interface ZynkEntityResponse {
@@ -143,23 +131,34 @@ class ZynkRepository {
       throw new AppError(500, "ZYNK_ROUTING_ID is not configured");
     }
 
-    try {
-      const response = await zynkClient.post<ZynkKycResponse>(
-        `/api/v1/transformer/entity/kyc/${encodeURIComponent(
-          entityId
-        )}/${routingId}`
-      );
-      return validateZynkResponse<ZynkKycResponse>(
-        response.data,
-        zynkKycResponseSchema,
-        "Failed to start KYC"
-      );
-    } catch (error) {
-      if (error instanceof AxiosError && error.response?.status === 404) {
-        throw new AppError(404, "Entity not found in Zynk");
+    const maxRetries = 3;
+    const retryDelayMs = 2000;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await zynkClient.post<ZynkKycResponse>(
+          `/api/v1/transformer/entity/kyc/${encodeURIComponent(
+            entityId
+          )}/${routingId}`
+        );
+        return validateZynkResponse<ZynkKycResponse>(
+          response.data,
+          zynkKycResponseSchema,
+          "Failed to start KYC"
+        );
+      } catch (error) {
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+            continue;
+          }
+          throw new AppError(404, "Entity not found in Zynk");
+        }
+        handleZynkError(error, "KYC request failed");
       }
-      handleZynkError(error, "KYC request failed");
     }
+
+    throw new AppError(404, "Entity not found in Zynk");
   }
 
   async getKycStatus(entityId: string): Promise<ZynkKycStatusResponse> {
