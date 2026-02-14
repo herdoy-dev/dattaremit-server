@@ -1,5 +1,6 @@
 import Joi from "joi";
 import AppError from "../lib/AppError";
+import logger from "../lib/logger";
 
 // Schema for entity creation response
 export const zynkEntityResponseSchema = Joi.object({
@@ -16,7 +17,7 @@ export const zynkKycResponseSchema = Joi.object({
   data: Joi.object({
     message: Joi.string().required(),
     kycLink: Joi.string().required(),
-    tosLink: Joi.string().required(),
+    tosLink: Joi.string().optional(),
     kycStatus: Joi.string()
       .valid(
         "not_started",
@@ -104,6 +105,11 @@ export function validateZynkResponse<T>(
   });
 
   if (error) {
+    logger.error("Zynk API response validation failed", {
+      errorMessage,
+      validationErrors: error.details.map((d) => d.message),
+      rawResponse: JSON.stringify(response),
+    });
     throw new AppError(
       502,
       `${errorMessage}: Invalid response from Zynk API`

@@ -31,7 +31,7 @@ interface ZynkKycResponse {
   data: {
     message: string;
     kycLink: string;
-    tosLink: string;
+    tosLink?: string;
     kycStatus:
       | "not_started"
       | "initiated"
@@ -276,14 +276,16 @@ class ZynkRepository {
     }
 
     try {
-      const response = await zynkClient.post<ZynkPlaidLinkTokenResponse>(
+      const response = await zynkClient.post(
         `/api/v1/transformer/entity/${encodeURIComponent(
           entityId
         )}/generate/plaid-link-token`,
         { jurisdictionId, createNewToken: true }
       );
+      // Zynk wraps responses in { success, data }, extract the inner data
+      const zynkBody = response.data as { success: boolean; data: unknown };
       return validateZynkResponse<ZynkPlaidLinkTokenResponse>(
-        response.data,
+        zynkBody.data,
         zynkPlaidLinkTokenResponseSchema,
         "Failed to generate Plaid link token"
       );
