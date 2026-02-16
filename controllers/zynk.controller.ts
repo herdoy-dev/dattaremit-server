@@ -155,7 +155,11 @@ class ZynkController {
   ) {
     try {
       const dbUser = req.user;
-      const result = await zynkService.generatePlaidLinkToken(dbUser.id);
+      const { android_package_name, redirect_uri } = req.body || {};
+      const result = await zynkService.generatePlaidLinkToken(dbUser.id, {
+        androidPackageName: android_package_name,
+        redirectUri: redirect_uri,
+      });
       res
         .status(200)
         .json(
@@ -177,7 +181,11 @@ class ZynkController {
   ) {
     try {
       const dbUser = req.user;
-      const result = await zynkService.updatePlaidLinkToken(dbUser.id);
+      const { android_package_name, redirect_uri } = req.body || {};
+      const result = await zynkService.updatePlaidLinkToken(dbUser.id, {
+        androidPackageName: android_package_name,
+        redirectUri: redirect_uri,
+      });
       res
         .status(200)
         .json(

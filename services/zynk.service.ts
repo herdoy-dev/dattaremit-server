@@ -250,7 +250,10 @@ class ZynkService {
     return response.data.data;
   }
 
-  async generatePlaidLinkToken(userId: string) {
+  async generatePlaidLinkToken(
+    userId: string,
+    options?: { androidPackageName?: string; redirectUri?: string }
+  ) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError(404, "User not found");
@@ -263,10 +266,13 @@ class ZynkService {
       );
     }
 
-    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId);
+    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId, options);
   }
 
-  async updatePlaidLinkToken(userId: string) {
+  async updatePlaidLinkToken(
+    userId: string,
+    options?: { androidPackageName?: string; redirectUri?: string }
+  ) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError(404, "User not found");
@@ -279,7 +285,7 @@ class ZynkService {
       );
     }
 
-    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId);
+    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId, options);
   }
 }
 

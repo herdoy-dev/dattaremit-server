@@ -267,7 +267,8 @@ class ZynkRepository {
   }
 
   async generatePlaidLinkToken(
-    entityId: string
+    entityId: string,
+    options?: { androidPackageName?: string; redirectUri?: string }
   ): Promise<ZynkPlaidLinkTokenResponse> {
     const jurisdictionId = process.env.ZYNK_JURISDICTION_ID;
 
@@ -276,11 +277,22 @@ class ZynkRepository {
     }
 
     try {
+      const body: Record<string, unknown> = {
+        jurisdictionId,
+        createNewToken: true,
+      };
+      if (options?.androidPackageName) {
+        body.android_package_name = options.androidPackageName;
+      }
+      if (options?.redirectUri) {
+        body.redirect_uri = options.redirectUri;
+      }
+
       const response = await zynkClient.post(
         `/api/v1/transformer/entity/${encodeURIComponent(
           entityId
         )}/generate/plaid-link-token`,
-        { jurisdictionId, createNewToken: true }
+        body
       );
       // Zynk wraps responses in { success, data }, extract the inner data
       const zynkBody = response.data as { success: boolean; data: unknown };
