@@ -8,6 +8,10 @@ interface ZynkErrorBody {
     message: string;
     details?: string;
   };
+  // Flat error format used by some Zynk/Cybrid endpoints
+  status?: number;
+  error_message?: string;
+  message_code?: string;
 }
 
 export function handleZynkError(error: unknown, defaultMessage: string): never {
@@ -21,6 +25,14 @@ export function handleZynkError(error: unknown, defaultMessage: string): never {
     if (zynkError?.error) {
       const errorMessage = zynkError.error.details || zynkError.error.message;
       throw new AppError(zynkError.error.code, errorMessage);
+    }
+
+    // Handle flat error format: { status, error_message, message_code }
+    if (zynkError?.error_message) {
+      throw new AppError(
+        zynkError.status || error.response.status,
+        zynkError.error_message
+      );
     }
 
     throw new AppError(error.response.status, defaultMessage);

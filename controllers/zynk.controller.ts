@@ -1,11 +1,35 @@
 import type { NextFunction, Response } from "express";
+import Joi from "joi";
 import APIResponse from "../lib/APIResponse";
+import AppError from "../lib/AppError";
 import {
   withIdempotency,
   type IdempotentHandlerResult,
 } from "../lib/idempotency";
 import type { AuthRequest } from "../middlewares/auth";
 import zynkService from "../services/zynk.service";
+
+const addExternalAccountSchema = Joi.object({
+  accountName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Account name cannot be empty",
+    "any.required": "Account name is required",
+  }),
+  paymentRail: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Payment rail cannot be empty",
+    "any.required": "Payment rail is required",
+  }),
+  plaidPublicToken: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Plaid public token cannot be empty",
+    "any.required": "Plaid public token is required",
+  }),
+  plaidAccountId: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Plaid account ID cannot be empty",
+    "any.required": "Plaid account ID is required",
+  }),
+});
+
+const ALLOWED_ANDROID_PACKAGES = new Set(["com.dattapay.mobile"]);
+const ALLOWED_REDIRECT_HOSTS = new Set(["dattaremit.com", "localhost"]);
 
 class ZynkController {
   async createEntity(req: AuthRequest, res: Response, next: NextFunction) {
@@ -55,99 +79,7 @@ class ZynkController {
     }
   }
 
-  async createFundingAccount(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
-    return withIdempotency(
-      req,
-      res,
-      next,
-      { operation: "zynk:createFundingAccount" },
-      async (): Promise<IdempotentHandlerResult<unknown>> => {
-        const dbUser = req.user;
-        const result = await zynkService.createFundingAccount(dbUser.id);
-        return {
-          status: 201,
-          response: new APIResponse(
-            true,
-            "Funding account created successfully",
-            result
-          ),
-        };
-      }
-    );
-  }
-
-  async getFundingAccount(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const dbUser = req.user;
-      const fundingAccount = await zynkService.getFundingAccount(dbUser.id);
-      res
-        .status(200)
-        .json(
-          new APIResponse(
-            true,
-            "Funding account retrieved successfully",
-            fundingAccount
-          )
-        );
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async activateFundingAccount(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
-    return withIdempotency(
-      req,
-      res,
-      next,
-      { operation: "zynk:activateFundingAccount" },
-      async (): Promise<IdempotentHandlerResult<unknown>> => {
-        const dbUser = req.user;
-        const fundingAccount = await zynkService.activateFundingAccount(
-          dbUser.id
-        );
-        return {
-          status: 200,
-          response: new APIResponse(
-            true,
-            "Funding account activated successfully",
-            fundingAccount
-          ),
-        };
-      }
-    );
-  }
-
-  async deactivateFundingAccount(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
-    try {
-      const dbUser = req.user;
-      const fundingAccount = await zynkService.deactivateFundingAccount(
-        dbUser.id
-      );
-      res
-        .status(200)
-        .json(
-          new APIResponse(
-            true,
-            "Funding account deactivated successfully",
-            fundingAccount
-          )
-        );
-    } catch (error) {
-      next(error);
-    }
-  }
+ 
   async generatePlaidLinkToken(
     req: AuthRequest,
     res: Response,
@@ -156,6 +88,25 @@ class ZynkController {
     try {
       const dbUser = req.user;
       const { android_package_name, redirect_uri } = req.body || {};
+
+      if (
+        android_package_name !== undefined &&
+        !ALLOWED_ANDROID_PACKAGES.has(android_package_name)
+      ) {
+        throw new AppError(400, "Invalid android_package_name");
+      }
+
+      if (redirect_uri !== undefined) {
+        try {
+          const url = new URL(redirect_uri);
+          if (!ALLOWED_REDIRECT_HOSTS.has(url.hostname)) {
+            throw new AppError(400, "Invalid redirect_uri");
+          }
+        } catch {
+          throw new AppError(400, "Invalid redirect_uri");
+        }
+      }
+
       const result = await zynkService.generatePlaidLinkToken(dbUser.id, {
         androidPackageName: android_package_name,
         redirectUri: redirect_uri,
@@ -174,25 +125,33 @@ class ZynkController {
     }
   }
 
-  async updatePlaidLinkToken(
+  async addExternalAccount(
     req: AuthRequest,
     res: Response,
     next: NextFunction
   ) {
     try {
       const dbUser = req.user;
-      const { android_package_name, redirect_uri } = req.body || {};
-      const result = await zynkService.updatePlaidLinkToken(dbUser.id, {
-        androidPackageName: android_package_name,
-        redirectUri: redirect_uri,
+      const { error, value } = addExternalAccountSchema.validate(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
       });
+
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await zynkService.addExternalAccount(dbUser.id, value);
       res
-        .status(200)
+        .status(201)
         .json(
           new APIResponse(
             true,
-            "Plaid link token updated successfully",
-            result
+            "External account added and enabled successfully",
+            user
           )
         );
     } catch (error) {

@@ -3,7 +3,10 @@ import activityLogger from "../lib/activity-logger";
 import AppError from "../lib/AppError";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
 import userRepository from "../repositories/user.repository";
-import type { ZynkEntityData } from "../repositories/zynk.repository";
+import type {
+  ZynkEntityData,
+  ZynkAddExternalAccountData,
+} from "../repositories/zynk.repository";
 import zynkRepository from "../repositories/zynk.repository";
 
 class ZynkService {
@@ -95,164 +98,9 @@ class ZynkService {
     return response.data;
   }
 
-  async createFundingAccount(userId: string) {
-    // Initial validation
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first."
-      );
-    }
-
-    // Call external API first (cannot be rolled back)
-    const response = await zynkRepository.createFundingAccount(
-      user.zynkEntityId
-    );
-
-    // Wrap check + update in transaction to prevent race conditions
-    const updatedUser = await prismaClient.$transaction(async (tx) => {
-      const currentUser = await tx.user.findUnique({
-        where: { id: userId },
-        include: { addresses: true },
-      });
-
-      if (!currentUser) {
-        throw new AppError(404, "User not found");
-      }
-
-      if (currentUser.zynkFundingAccountId) {
-        throw new AppError(409, "User already has a funding account");
-      }
-
-      return tx.user.update({
-        where: { id: userId },
-        data: { zynkFundingAccountId: response.data.data.id },
-        include: { addresses: true },
-      });
-    });
-
-    await activityLogger.logActivity({
-      userId,
-      type: ActivityType.ACCOUNT_APPROVED,
-      status: ActivityStatus.COMPLETE,
-      description: "Funding account created",
-      metadata: { fundingAccountId: response.data.data.id },
-    });
-
-    return {
-      user: decryptUserData(updatedUser),
-      fundingAccount: response.data.data,
-    };
-  }
-
-  async getFundingAccount(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first."
-      );
-    }
-
-    if (!user.zynkFundingAccountId) {
-      throw new AppError(
-        400,
-        "User does not have a funding account. Create funding account first."
-      );
-    }
-
-    const response = await zynkRepository.getFundingAccount(
-      user.zynkEntityId,
-      user.zynkFundingAccountId
-    );
-
-    return response.data;
-  }
-
-  async activateFundingAccount(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first."
-      );
-    }
-
-    if (!user.zynkFundingAccountId) {
-      throw new AppError(
-        400,
-        "User does not have a funding account. Create funding account first."
-      );
-    }
-
-    const response = await zynkRepository.activateFundingAccount(
-      user.zynkEntityId,
-      user.zynkFundingAccountId
-    );
-
-    await activityLogger.logActivity({
-      userId,
-      type: ActivityType.ACCOUNT_ACTIVATED,
-      status: ActivityStatus.COMPLETE,
-      description: "Funding account activated",
-      metadata: { fundingAccountId: user.zynkFundingAccountId },
-    });
-
-    return response.data.data;
-  }
-
-  async deactivateFundingAccount(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first."
-      );
-    }
-
-    if (!user.zynkFundingAccountId) {
-      throw new AppError(
-        400,
-        "User does not have a funding account. Create funding account first."
-      );
-    }
-
-    const response = await zynkRepository.deactivateFundingAccount(
-      user.zynkEntityId,
-      user.zynkFundingAccountId
-    );
-
-    await activityLogger.logActivity({
-      userId,
-      type: ActivityType.ACCOUNT_ACTIVATED,
-      status: ActivityStatus.FAILED,
-      description: "Funding account deactivated",
-      metadata: { fundingAccountId: user.zynkFundingAccountId },
-    });
-
-    return response.data.data;
-  }
-
-  async generatePlaidLinkToken(
+  async addExternalAccount(
     userId: string,
-    options?: { androidPackageName?: string; redirectUri?: string }
+    data: ZynkAddExternalAccountData
   ) {
     const user = await userRepository.findById(userId);
     if (!user) {
@@ -266,10 +114,44 @@ class ZynkService {
       );
     }
 
-    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId, options);
+    // Step 1: Add external account via Zynk API
+    const addResponse = await zynkRepository.addExternalAccount(
+      user.zynkEntityId,
+      data
+    );
+
+    const externalAccountId = addResponse.data.accountId;
+
+    // Step 2: Save external account ID to user in a transaction
+    const updatedUser = await prismaClient.$transaction(async (tx) => {
+      return tx.user.update({
+        where: { id: userId },
+        data: { zynkExternalAccountId: externalAccountId },
+        include: { addresses: true },
+      });
+    });
+
+    // Step 3: Activate the external account
+    await zynkRepository.enableExternalAccount(
+      user.zynkEntityId,
+      externalAccountId
+    );
+
+    await activityLogger.logActivity({
+      userId,
+      type: ActivityType.ACCOUNT_ACTIVATED,
+      status: ActivityStatus.COMPLETE,
+      description: "External account added and enabled",
+      metadata: {
+        entityId: user.zynkEntityId,
+        externalAccountId,
+      },
+    });
+
+    return decryptUserData(updatedUser);
   }
 
-  async updatePlaidLinkToken(
+  async generatePlaidLinkToken(
     userId: string,
     options?: { androidPackageName?: string; redirectUri?: string }
   ) {

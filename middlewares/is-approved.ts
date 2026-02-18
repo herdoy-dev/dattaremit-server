@@ -7,7 +7,7 @@ const isApproved: RequestHandler = async (req, res, next) => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
     if (user.accountStatus !== "ACTIVE") {
-      throw new AppError(401, "Account is not approved yet.");
+      throw new AppError(403, "Account is not approved yet.");
     }
     next();
   } catch (error) {

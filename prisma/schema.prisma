@@ -8,25 +8,23 @@ datasource db {
 }
 
 model User {
-  id                   String            @id @default(uuid()) @db.Uuid
-  firstName            String
-  clerkUserId          String            @unique
-  zynkEntityId         String?
-  zynkFundingAccountId String?
-  lastName             String
-  email                String // Encrypted email
-  emailHash            String            @unique // HMAC-SHA256 hash for lookups
-  phoneNumberPrefix    String
-  phoneNumber          String
-  dateOfBirth          String // Encrypted date of birth (stored as ISO string)
+  id                    String  @id @default(uuid()) @db.Uuid
+  firstName             String
+  clerkUserId           String  @unique
+  zynkEntityId          String?
+  zynkExternalAccountId String?
+  lastName              String
+  email                 String // Encrypted email
+  emailHash             String  @unique // HMAC-SHA256 hash for lookups
+  phoneNumberPrefix     String
+  phoneNumber           String
+  dateOfBirth           String // Encrypted date of birth (stored as ISO string)
 
-  accountStatus        AccountStatus     @default(INITIAL)
-  addresses            Address[]
-  externalAccounts     ExternalAccount[]
-  teleport             Teleport?
-  activities           Activity[]
-  created_at           DateTime          @default(now())
-  updated_at           DateTime          @updatedAt
+  accountStatus AccountStatus @default(INITIAL)
+  addresses     Address[]
+  activities    Activity[]
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
 
   @@map("users")
 }
@@ -58,54 +56,6 @@ enum AddressType {
   @@map("address_type")
 }
 
-model ExternalAccount {
-  id                    String                @id @default(uuid()) @db.Uuid
-  userId                String                @db.Uuid
-  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  zynkExternalAccountId String?               @unique
-  walletAddress         String
-  walletId              String?
-  label                 String?
-  type                  String                @default("withdrawal")
-  status                ExternalAccountStatus @default(ACTIVE)
-  teleports             Teleport[]
-  created_at            DateTime              @default(now())
-  updated_at            DateTime              @updatedAt
-  deleted_at            DateTime?
-
-  @@unique([userId])
-  @@index([userId, status])
-  @@map("external_accounts")
-}
-
-model Teleport {
-  id                String          @id @default(uuid()) @db.Uuid
-  userId            String          @unique @db.Uuid
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  externalAccountId String          @db.Uuid
-  externalAccount   ExternalAccount @relation(fields: [externalAccountId], references: [id], onDelete: Cascade)
-  zynkTeleportId    String?         @unique
-  status            TeleportStatus  @default(ACTIVE)
-  created_at        DateTime        @default(now())
-  updated_at        DateTime        @updatedAt
-
-  @@map("teleports")
-}
-
-enum ExternalAccountStatus {
-  ACTIVE
-  INACTIVE
-
-  @@map("external_account_status")
-}
-
-enum TeleportStatus {
-  ACTIVE
-  INACTIVE
-
-  @@map("teleport_status")
-}
-
 enum AccountStatus {
   INITIAL
   ACTIVE
@@ -135,8 +85,6 @@ enum ActivityType {
   // Financial activities
   DEPOSIT
   WITHDRAWAL
-  EXTERNAL_ACCOUNT_ADDED
-  EXTERNAL_ACCOUNT_REMOVED
   TRANSFER
   PAYMENT
   REFUND
@@ -152,6 +100,7 @@ enum ActivityType {
   // Account activities
   ACCOUNT_APPROVED
   ACCOUNT_ACTIVATED
+  ACCOUNT_DEACTIVATED
 
   @@map("activity_type")
 }
@@ -194,14 +143,4 @@ model IdempotencyKey {
   @@unique([userId, operation, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
-}
-
-model KeyBackup {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @unique @db.Uuid
-  payload    Json
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("key_backups")
 }

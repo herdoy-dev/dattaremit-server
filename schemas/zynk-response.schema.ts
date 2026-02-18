@@ -50,39 +50,21 @@ export const zynkKycStatusResponseSchema = Joi.object({
   }).required(),
 });
 
-// Schema for funding account data
-const fundingAccountDataSchema = Joi.object({
-  id: Joi.string().required(),
-  entityId: Joi.string().required(),
-  jurisdictionId: Joi.string().required(),
-  providerId: Joi.string().required(),
-  status: Joi.string().required(),
-  accountInfo: Joi.object({
-    currency: Joi.string().required(),
-    bank_name: Joi.string().required(),
-    bank_address: Joi.string().required(),
-    bank_routing_number: Joi.string().required(),
-    bank_account_number: Joi.string().required(),
-    bank_beneficiary_name: Joi.string().required(),
-    bank_beneficiary_address: Joi.string().required(),
-    payment_rail: Joi.string().required(),
-    payment_rails: Joi.array().items(Joi.string()).required(),
-  }).required(),
-});
-
-// Schema for create funding account response
-export const zynkCreateFundingAccountResponseSchema = Joi.object({
+// Schema for add external account response
+export const zynkAddExternalAccountResponseSchema = Joi.object({
   success: Joi.boolean().required(),
   data: Joi.object({
     message: Joi.string().required(),
-    data: fundingAccountDataSchema.required(),
+    accountId: Joi.string().required(),
   }).required(),
 });
 
-// Schema for get funding account response
-export const zynkGetFundingAccountResponseSchema = Joi.object({
+// Schema for enable external account response
+export const zynkEnableExternalAccountResponseSchema = Joi.object({
   success: Joi.boolean().required(),
-  data: fundingAccountDataSchema.required(),
+  data: Joi.object({
+    message: Joi.string().required(),
+  }).required(),
 });
 
 // Schema for Plaid link token response

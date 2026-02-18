@@ -128,7 +128,7 @@ export type UpdateUserInput = Partial<
 export type InternalUpdateUserInput = Partial<CreateUserInput> & {
   zynkEntityId?: string;
   accountStatus?: AccountStatus;
-  zynkFundingAccountId?: string;
+  zynkExternalAccountId?: string;
 };
 
 export type UserIdParam = {

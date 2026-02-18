@@ -4,7 +4,6 @@ import express from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import userRepository from "../repositories/user.repository";
-import zynkService from "../services/zynk.service";
 import { kycEventSchema, type KYCEvent } from "../schemas/webhook.schema";
 import activityLogger from "../lib/activity-logger";
 import { ActivityStatus, ActivityType } from "../generated/prisma/client";
@@ -144,22 +143,8 @@ router.post(
         metadata: body,
       });
 
-      // Update user status and create funding account
-      // If either fails, return error to webhook so it can retry
-      try {
-        await userRepository.update(user.id, { accountStatus: "ACTIVE" });
-        await zynkService.createFundingAccount(user.id);
-      } catch (err) {
-        // Log but don't throw - return 500 so webhook can retry
-        await activityLogger.logActivity({
-          userId: user.id,
-          type: ActivityType.KYC_FAILED,
-          status: ActivityStatus.FAILED,
-          description: "Failed to activate account after KYC approval",
-          metadata: { error: err instanceof Error ? err.message : String(err) },
-        });
-        throw new AppError(500, "Failed to complete account activation");
-      }
+      // Update user status independently — this must succeed
+      await userRepository.update(user.id, { accountStatus: "ACTIVE" });
 
       return res.status(200).json(new APIResponse(true, "Success"));
     } catch (error) {

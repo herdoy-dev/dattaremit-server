@@ -7,8 +7,8 @@ import {
   zynkEntityResponseSchema,
   zynkKycResponseSchema,
   zynkKycStatusResponseSchema,
-  zynkCreateFundingAccountResponseSchema,
-  zynkGetFundingAccountResponseSchema,
+  zynkAddExternalAccountResponseSchema,
+  zynkEnableExternalAccountResponseSchema,
   zynkPlaidLinkTokenResponseSchema,
 } from "../schemas/zynk-response.schema";
 
@@ -76,36 +76,26 @@ interface ZynkKycStatusResponse {
   };
 }
 
-interface ZynkFundingAccountData {
-  id: string;
-  entityId: string;
-  jurisdictionId: string;
-  providerId: string;
-  status: string;
-  accountInfo: {
-    currency: string;
-    bank_name: string;
-    bank_address: string;
-    bank_routing_number: string;
-    bank_account_number: string;
-    bank_beneficiary_name: string;
-    bank_beneficiary_address: string;
-    payment_rail: string;
-    payment_rails: string[];
-  };
+interface ZynkAddExternalAccountData {
+  accountName: string;
+  paymentRail: string;
+  plaidPublicToken: string;
+  plaidAccountId: string;
 }
 
-interface ZynkCreateFundingAccountResponse {
+interface ZynkAddExternalAccountResponse {
   success: boolean;
   data: {
     message: string;
-    data: ZynkFundingAccountData;
+    accountId: string;
   };
 }
 
-interface ZynkGetFundingAccountResponse {
+interface ZynkEnableExternalAccountResponse {
   success: boolean;
-  data: ZynkFundingAccountData;
+  data: {
+    message: string;
+  };
 }
 
 interface ZynkPlaidLinkTokenResponse {
@@ -181,9 +171,10 @@ class ZynkRepository {
     }
   }
 
-  async createFundingAccount(
-    entityId: string
-  ): Promise<ZynkCreateFundingAccountResponse> {
+  async addExternalAccount(
+    entityId: string,
+    data: ZynkAddExternalAccountData
+  ): Promise<ZynkAddExternalAccountResponse> {
     const jurisdictionId = process.env.ZYNK_JURISDICTION_ID;
 
     if (!jurisdictionId) {
@@ -191,78 +182,45 @@ class ZynkRepository {
     }
 
     try {
-      const response = await zynkClient.post<ZynkCreateFundingAccountResponse>(
+      const response = await zynkClient.post<ZynkAddExternalAccountResponse>(
         `/api/v1/transformer/accounts/${encodeURIComponent(
           entityId
-        )}/create/funding_account/${jurisdictionId}`
+        )}/add/external_account`,
+        {
+          jurisdictionID: jurisdictionId,
+          type: "deposit_and_withdrawal",
+          ownershipType: "first_party",
+          account: data,
+        }
       );
-      return validateZynkResponse<ZynkCreateFundingAccountResponse>(
+      return validateZynkResponse<ZynkAddExternalAccountResponse>(
         response.data,
-        zynkCreateFundingAccountResponseSchema,
-        "Failed to create funding account"
+        zynkAddExternalAccountResponseSchema,
+        "Failed to add external account"
       );
     } catch (error) {
-      handleZynkError(error, "Failed to create funding account");
+      handleZynkError(error, "Failed to add external account");
     }
   }
 
-  async getFundingAccount(
+  async enableExternalAccount(
     entityId: string,
     accountId: string
-  ): Promise<ZynkGetFundingAccountResponse> {
+  ): Promise<ZynkEnableExternalAccountResponse> {
     try {
-      const response = await zynkClient.get<ZynkGetFundingAccountResponse>(
-        `/api/v1/transformer/accounts/${encodeURIComponent(
-          entityId
-        )}/funding_account/${encodeURIComponent(accountId)}`
-      );
-      return validateZynkResponse<ZynkGetFundingAccountResponse>(
+      const response =
+        await zynkClient.post<ZynkEnableExternalAccountResponse>(
+          `/api/v1/transformer/accounts/${encodeURIComponent(
+            entityId
+          )}/enable/external_account/${encodeURIComponent(accountId)}`
+        );
+      return validateZynkResponse<ZynkEnableExternalAccountResponse>(
         response.data,
-        zynkGetFundingAccountResponseSchema,
-        "Failed to get funding account"
+        zynkEnableExternalAccountResponseSchema,
+        "Failed to enable external account"
       );
     } catch (error) {
-      handleZynkError(error, "Failed to get funding account");
-    }
-  }
-
-  async activateFundingAccount(
-    entityId: string,
-    accountId: string
-  ): Promise<ZynkCreateFundingAccountResponse> {
-    try {
-      const response = await zynkClient.post<ZynkCreateFundingAccountResponse>(
-        `/api/v1/transformer/accounts/${encodeURIComponent(
-          entityId
-        )}/activate/funding_account/${encodeURIComponent(accountId)}`
-      );
-      return validateZynkResponse<ZynkCreateFundingAccountResponse>(
-        response.data,
-        zynkCreateFundingAccountResponseSchema,
-        "Failed to activate funding account"
-      );
-    } catch (error) {
-      handleZynkError(error, "Failed to activate funding account");
-    }
-  }
-
-  async deactivateFundingAccount(
-    entityId: string,
-    accountId: string
-  ): Promise<ZynkCreateFundingAccountResponse> {
-    try {
-      const response = await zynkClient.post<ZynkCreateFundingAccountResponse>(
-        `/api/v1/transformer/accounts/${encodeURIComponent(
-          entityId
-        )}/deactivate/funding_account/${encodeURIComponent(accountId)}`
-      );
-      return validateZynkResponse<ZynkCreateFundingAccountResponse>(
-        response.data,
-        zynkCreateFundingAccountResponseSchema,
-        "Failed to deactivate funding account"
-      );
-    } catch (error) {
-      handleZynkError(error, "Failed to deactivate funding account");
+      handleZynkError(error, "Failed to enable external account");
     }
   }
 
@@ -313,8 +271,8 @@ export type {
   ZynkEntityResponse,
   ZynkKycResponse,
   ZynkKycStatusResponse,
-  ZynkFundingAccountData,
-  ZynkCreateFundingAccountResponse,
-  ZynkGetFundingAccountResponse,
+  ZynkAddExternalAccountData,
+  ZynkAddExternalAccountResponse,
+  ZynkEnableExternalAccountResponse,
   ZynkPlaidLinkTokenResponse,
 };

@@ -11,7 +11,6 @@ class AccountService {
     return {
       user: user ?? null,
       addresses,
-      wallet: null,
       accountStatus: user?.accountStatus ?? "INITIAL",
     };
   }

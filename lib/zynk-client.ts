@@ -1,46 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import AppError from "./AppError";
 import logger from "./logger";
-
-export interface ZynkErrorResponse {
-  success: false;
-  error: {
-    code: number;
-    message: string;
-    details: string;
-  };
-}
-
-export function handleZynkError(
-  error: unknown,
-  fallbackMessage: string
-): never {
-  if (error instanceof AxiosError && error.response) {
-    const zynkError = error.response.data as ZynkErrorResponse;
-
-    if (zynkError?.error) {
-      const errorMessage = zynkError.error.details || zynkError.error.message;
-      throw new AppError(zynkError.error.code, errorMessage);
-    }
-
-    throw new AppError(error.response.status, fallbackMessage);
-  }
-
-  // Handle timeout errors specifically
-  if (error instanceof AxiosError) {
-    if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
-      throw new AppError(504, "Zynk API request timed out. Please try again.");
-    }
-    if (error.code === "ECONNREFUSED") {
-      throw new AppError(503, "Unable to reach Zynk API. Please try again later.");
-    }
-    if (error.code === "ENOTFOUND") {
-      throw new AppError(503, "Zynk API is unreachable. Please try again later.");
-    }
-  }
-
-  throw new AppError(500, "Failed to connect to Zynk API");
-}
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -90,7 +49,6 @@ function addRetryInterceptor(client: AxiosInstance) {
 
 const zynkClient = axios.create({
   baseURL: process.env.ZYNK_API_BASE_URL,
-  withCredentials: true,
   timeout: 60000, // Increased to 60 seconds for payment operations
 });
 
@@ -101,30 +59,5 @@ zynkClient.interceptors.request.use(async (config) => {
 
 // Add retry logic
 addRetryInterceptor(zynkClient);
-
-const ENTITY_ID_PATTERN = /^[\w-]+$/;
-
-export const preparePasskeyRegistration = async (
-  entityId: string,
-  passkeyData: object
-) => {
-  if (!ENTITY_ID_PATTERN.test(entityId)) {
-    throw new Error("Invalid entity ID format");
-  }
-  return zynkClient.post(
-    `/api/v1/wallets/${entityId}/prepare-passkey-registration`,
-    passkeyData
-  );
-};
-
-export const submitPasskeyRegistration = async (
-  payloadId: string,
-  signature: string
-) => {
-  return zynkClient.post("/api/v1/wallets/submit-passkey-registration", {
-    payloadId,
-    signature,
-  });
-};
 
 export default zynkClient;

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "activity_type" ADD VALUE 'ACCOUNT_DEACTIVATED';
