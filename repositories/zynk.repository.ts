@@ -188,7 +188,7 @@ class ZynkRepository {
         )}/add/external_account`,
         {
           jurisdictionID: jurisdictionId,
-          type: "deposit_and_withdrawal",
+          type: "plaid",
           ownershipType: "first_party",
           account: data,
         }
