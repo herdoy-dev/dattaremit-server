@@ -29,7 +29,12 @@ const addExternalAccountSchema = Joi.object({
 });
 
 const ALLOWED_ANDROID_PACKAGES = new Set(["com.dattapay.mobile"]);
-const ALLOWED_REDIRECT_HOSTS = new Set(["dattaremit.com", "localhost"]);
+const ALLOWED_REDIRECT_HOSTS = new Set([
+  "dattaremit.com",
+  "localhost",
+  "cdn-testing.plaid.com",
+  "cdn.plaid.com",
+]);
 
 class ZynkController {
   async createEntity(req: AuthRequest, res: Response, next: NextFunction) {
