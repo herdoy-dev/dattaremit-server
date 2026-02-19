@@ -83,6 +83,17 @@ interface ZynkAddExternalAccountData {
   plaidAccountId: string;
 }
 
+interface ZynkAddDepositAccountData {
+  accountNumber: string;
+  ifscCode: string;
+  accountHolderName: string;
+  bankName: string;
+  branchName: string;
+  bankCountry: string;
+  bankAccountType: string;
+  phoneNumber: string;
+}
+
 interface ZynkAddExternalAccountResponse {
   success: boolean;
   data: {
@@ -203,6 +214,38 @@ class ZynkRepository {
     }
   }
 
+  async addDepositAccount(
+    entityId: string,
+    data: ZynkAddDepositAccountData
+  ): Promise<ZynkAddExternalAccountResponse> {
+    const jurisdictionId = process.env.ZYNK_INR_JURISDICTION_ID;
+
+    if (!jurisdictionId) {
+      throw new AppError(500, "ZYNK_INR_JURISDICTION_ID is not configured");
+    }
+
+    try {
+      const response = await zynkClient.post<ZynkAddExternalAccountResponse>(
+        `/api/v1/transformer/accounts/${encodeURIComponent(
+          entityId
+        )}/add/external_account`,
+        {
+          jurisdictionID: jurisdictionId,
+          type: "deposit",
+          ownershipType: "first_party",
+          account: data,
+        }
+      );
+      return validateZynkResponse<ZynkAddExternalAccountResponse>(
+        response.data,
+        zynkAddExternalAccountResponseSchema,
+        "Failed to add deposit account"
+      );
+    } catch (error) {
+      handleZynkError(error, "Failed to add deposit account");
+    }
+  }
+
   async enableExternalAccount(
     entityId: string,
     accountId: string
@@ -272,6 +315,7 @@ export type {
   ZynkKycResponse,
   ZynkKycStatusResponse,
   ZynkAddExternalAccountData,
+  ZynkAddDepositAccountData,
   ZynkAddExternalAccountResponse,
   ZynkEnableExternalAccountResponse,
   ZynkPlaidLinkTokenResponse,

@@ -13,6 +13,7 @@ model User {
   clerkUserId           String  @unique
   zynkEntityId          String?
   zynkExternalAccountId String?
+  zynkDepositAccountId  String?
   lastName              String
   email                 String // Encrypted email
   emailHash             String  @unique // HMAC-SHA256 hash for lookups

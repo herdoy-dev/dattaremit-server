@@ -28,6 +28,49 @@ const addExternalAccountSchema = Joi.object({
   }),
 });
 
+const addDepositAccountSchema = Joi.object({
+  accountNumber: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Account number cannot be empty",
+    "any.required": "Account number is required",
+  }),
+  ifscCode: Joi.string()
+    .trim()
+    .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "IFSC code must be in format XXXX0XXXXXXX",
+      "any.required": "IFSC code is required",
+    }),
+  accountHolderName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Account holder name cannot be empty",
+    "any.required": "Account holder name is required",
+  }),
+  bankName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Bank name cannot be empty",
+    "any.required": "Bank name is required",
+  }),
+  branchName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Branch name cannot be empty",
+    "any.required": "Branch name is required",
+  }),
+  bankCountry: Joi.string().valid("IN").required().messages({
+    "any.only": "Bank country must be IN",
+    "any.required": "Bank country is required",
+  }),
+  bankAccountType: Joi.string().valid("Current", "Savings").required().messages({
+    "any.only": "Account type must be Current or Savings",
+    "any.required": "Account type is required",
+  }),
+  phoneNumber: Joi.string()
+    .trim()
+    .pattern(/^\+91\d{10}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Phone number must be +91 followed by 10 digits",
+      "any.required": "Phone number is required",
+    }),
+});
+
 const ALLOWED_ANDROID_PACKAGES = new Set(["com.dattapay.mobile"]);
 const ALLOWED_REDIRECT_HOSTS = new Set([
   "dattaremit.com",
@@ -156,6 +199,39 @@ class ZynkController {
           new APIResponse(
             true,
             "External account added and enabled successfully",
+            user
+          )
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
+  async addDepositAccount(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const dbUser = req.user;
+      const { error, value } = addDepositAccountSchema.validate(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await zynkService.addDepositAccount(dbUser.id, value);
+      res
+        .status(201)
+        .json(
+          new APIResponse(
+            true,
+            "Deposit account added and enabled successfully",
             user
           )
         );

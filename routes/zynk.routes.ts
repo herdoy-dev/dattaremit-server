@@ -32,4 +32,10 @@ router.post(
   zynkController.addExternalAccount as RequestHandler
 );
 
+router.post(
+  "/deposit-account",
+  isApproved,
+  zynkController.addDepositAccount as RequestHandler
+);
+
 export default router;

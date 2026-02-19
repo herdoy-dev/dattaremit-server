@@ -6,6 +6,7 @@ import userRepository from "../repositories/user.repository";
 import type {
   ZynkEntityData,
   ZynkAddExternalAccountData,
+  ZynkAddDepositAccountData,
 } from "../repositories/zynk.repository";
 import zynkRepository from "../repositories/zynk.repository";
 
@@ -145,6 +146,59 @@ class ZynkService {
       metadata: {
         entityId: user.zynkEntityId,
         externalAccountId,
+      },
+    });
+
+    return decryptUserData(updatedUser);
+  }
+
+  async addDepositAccount(
+    userId: string,
+    data: ZynkAddDepositAccountData
+  ) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    if (!user.zynkEntityId) {
+      throw new AppError(
+        400,
+        "User does not have a Zynk entity. Create entity first."
+      );
+    }
+
+    // Step 1: Add deposit account via Zynk API
+    const addResponse = await zynkRepository.addDepositAccount(
+      user.zynkEntityId,
+      data
+    );
+
+    const depositAccountId = addResponse.data.accountId;
+
+    // Step 2: Save deposit account ID to user in a transaction
+    const updatedUser = await prismaClient.$transaction(async (tx) => {
+      return tx.user.update({
+        where: { id: userId },
+        data: { zynkDepositAccountId: depositAccountId },
+        include: { addresses: true },
+      });
+    });
+
+    // Step 3: Activate the deposit account
+    await zynkRepository.enableExternalAccount(
+      user.zynkEntityId,
+      depositAccountId
+    );
+
+    await activityLogger.logActivity({
+      userId,
+      type: ActivityType.ACCOUNT_ACTIVATED,
+      status: ActivityStatus.COMPLETE,
+      description: "Deposit account added and enabled",
+      metadata: {
+        entityId: user.zynkEntityId,
+        depositAccountId,
       },
     });
 
