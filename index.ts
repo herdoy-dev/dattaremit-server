@@ -17,10 +17,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://app.dattaremit.com"
-    ],
+    origin: "*",
   })
 );
 
