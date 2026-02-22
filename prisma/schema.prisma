@@ -20,6 +20,7 @@ model User {
   phoneNumberPrefix     String
   phoneNumber           String
   dateOfBirth           String // Encrypted date of birth (stored as ISO string)
+  nationality           String?
 
   accountStatus AccountStatus @default(INITIAL)
   addresses     Address[]

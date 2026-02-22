@@ -25,7 +25,6 @@ export default async function auth(
 
     (req as AuthRequest).user = {
       clerkUserId: decoded.sub,
-      email: decoded.email,
     } as User;
 
     next();

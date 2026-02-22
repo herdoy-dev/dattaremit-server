@@ -1,5 +1,4 @@
 import type {
-  ErrorRequestHandler,
   Response as ExpressResponse,
   NextFunction,
   Request,
@@ -9,7 +8,7 @@ import AppError from "../lib/AppError";
 import logger from "../lib/logger";
 
 const error = (
-  err: ErrorRequestHandler,
+  err: Error,
   req: Request,
   res: ExpressResponse,
   next: NextFunction

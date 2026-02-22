@@ -23,11 +23,17 @@ class AddressController {
 
   async getById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const user = req.user;
       const { id } = req.params;
       if (!id) {
         throw new AppError(400, "Address ID is required");
       }
       const address = await addressService.getById(id);
+      // Ensure the address belongs to the authenticated user
+      const addr = address as { userId?: string };
+      if (addr.userId !== user.id) {
+        throw new AppError(403, "You can only view your own addresses");
+      }
       res
         .status(200)
         .json(new APIResponse(true, "Address retrieved successfully", address));

@@ -9,11 +9,7 @@ import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema";
 
 class UserService {
   async getByClerkUserId(clerkUserId: string) {
-    const user = await userRepository.findByClerkUserId(clerkUserId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-    return user;
+    return userRepository.findByClerkUserId(clerkUserId);
   }
 
   async create(data: CreateUserInput) {

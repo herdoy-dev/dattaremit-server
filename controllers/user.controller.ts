@@ -14,6 +14,9 @@ class UserController {
       }
 
       const user = await userService.getByClerkUserId(clerkUserId);
+      if (!user) {
+        throw new AppError(404, "User not found");
+      }
       res
         .status(200)
         .json(new APIResponse(true, "User retrieved successfully", user));
@@ -33,12 +36,19 @@ class UserController {
         throw new AppError(400, error.details.map((d) => d.message).join(", "));
       }
 
-      // Ensure clerkUserId and email match the authenticated user's token
+      // Ensure clerkUserId matches the authenticated user's token
       if (value.clerkUserId !== req.user.clerkUserId) {
         throw new AppError(403, "Cannot create account for a different user");
       }
-      if (req.user.email && value.email.toLowerCase() !== req.user.email.toLowerCase()) {
-        throw new AppError(403, "Email does not match authenticated account");
+
+      // If user already exists, update their profile data
+      const existingUser = await userService.getByClerkUserId(value.clerkUserId);
+      if (existingUser) {
+        const { clerkUserId, ...updateData } = value;
+        const updatedUser = await userService.update(existingUser.id, updateData);
+        return res
+          .status(200)
+          .json(new APIResponse(true, "Profile updated successfully", updatedUser));
       }
 
       const user = await userService.create(value);

@@ -38,8 +38,9 @@ class ZynkService {
         throw new AppError(404, "User not found");
       }
 
+      // If entity already exists, return the user as-is (idempotent)
       if (currentUser.zynkEntityId) {
-        throw new AppError(409, "User already has a Zynk entity");
+        return currentUser;
       }
 
       return tx.user.update({

@@ -52,6 +52,11 @@ export const createUserSchema = Joi.object({
     "date.max": "Date of birth cannot be in the future",
     "any.required": "Date of birth is required",
   }),
+
+  nationality: Joi.string().trim().min(1).max(100).optional().messages({
+    "string.empty": "Nationality cannot be empty",
+    "string.max": "Nationality cannot exceed 100 characters",
+  }),
 });
 
 export const updateUserSchema = Joi.object({
@@ -92,6 +97,11 @@ export const updateUserSchema = Joi.object({
     "date.format": "Date must be in ISO format",
     "date.max": "Date of birth cannot be in the future",
   }),
+
+  nationality: Joi.string().trim().min(1).max(100).messages({
+    "string.empty": "Nationality cannot be empty",
+    "string.max": "Nationality cannot exceed 100 characters",
+  }),
 })
   .min(1)
   .messages({
@@ -114,6 +124,7 @@ export type CreateUserInput = {
   phoneNumberPrefix: string;
   phoneNumber: string;
   dateOfBirth: Date;
+  nationality?: string;
 };
 
 // Auth-critical fields that should NEVER be updatable via public API

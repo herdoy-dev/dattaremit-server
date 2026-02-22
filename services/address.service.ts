@@ -30,13 +30,19 @@ class AddressService {
         throw new AppError(404, "User not found");
       }
 
-      // Check if user already has an address of this type
+      // If address of this type already exists, update it instead
       const existing = await tx.address.findUnique({
         where: { userId_type: { userId: data.userId, type: data.type } },
       });
 
       if (existing) {
-        throw new AppError(409, `User already has a ${data.type} address`);
+        const { userId, type, ...updateFields } = data;
+        const updated = await tx.address.update({
+          where: { id: existing.id },
+          data: updateFields,
+          include: { user: true },
+        });
+        return decryptNestedUser(updated);
       }
 
       const address = await tx.address.create({
