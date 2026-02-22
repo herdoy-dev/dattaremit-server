@@ -29,46 +29,31 @@ const addExternalAccountSchema = Joi.object({
 });
 
 const addDepositAccountSchema = Joi.object({
-  accountNumber: Joi.string().trim().min(1).required().messages({
-    "string.empty": "Account number cannot be empty",
-    "any.required": "Account number is required",
-  }),
-  ifscCode: Joi.string()
-    .trim()
-    .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
-    .required()
-    .messages({
-      "string.pattern.base": "IFSC code must be in format XXXX0XXXXXXX",
-      "any.required": "IFSC code is required",
-    }),
-  accountHolderName: Joi.string().trim().min(1).required().messages({
-    "string.empty": "Account holder name cannot be empty",
-    "any.required": "Account holder name is required",
-  }),
   bankName: Joi.string().trim().min(1).required().messages({
     "string.empty": "Bank name cannot be empty",
     "any.required": "Bank name is required",
   }),
-  branchName: Joi.string().trim().min(1).required().messages({
-    "string.empty": "Branch name cannot be empty",
-    "any.required": "Branch name is required",
+  accountHolderName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Account holder name cannot be empty",
+    "any.required": "Account holder name is required",
   }),
-  bankCountry: Joi.string().valid("IN").required().messages({
-    "any.only": "Bank country must be IN",
-    "any.required": "Bank country is required",
+  accountNumber: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Account number cannot be empty",
+    "any.required": "Account number is required",
   }),
-  bankAccountType: Joi.string().valid("Current", "Savings").required().messages({
-    "any.only": "Account type must be Current or Savings",
-    "any.required": "Account type is required",
-  }),
-  phoneNumber: Joi.string()
+  routingNumber: Joi.string()
     .trim()
-    .pattern(/^\+91\d{10}$/)
+    .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
     .required()
     .messages({
-      "string.pattern.base": "Phone number must be +91 followed by 10 digits",
-      "any.required": "Phone number is required",
+      "string.pattern.base":
+        "Routing number must be in IFSC format (e.g. SBIN0001234)",
+      "any.required": "Routing number is required",
     }),
+  type: Joi.string().valid("SAVINGS", "CURRENT").required().messages({
+    "any.only": "Account type must be SAVINGS or CURRENT",
+    "any.required": "Account type is required",
+  }),
 });
 
 const ALLOWED_ANDROID_PACKAGES = new Set(["com.dattapay.mobile"]);

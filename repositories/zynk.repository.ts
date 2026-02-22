@@ -84,14 +84,11 @@ interface ZynkAddExternalAccountData {
 }
 
 interface ZynkAddDepositAccountData {
-  accountNumber: string;
-  ifscCode: string;
-  accountHolderName: string;
   bankName: string;
-  branchName: string;
-  bankCountry: string;
-  bankAccountType: string;
-  phoneNumber: string;
+  accountHolderName: string;
+  accountNumber: string;
+  routingNumber: string;
+  type: string; // "SAVINGS" or "CURRENT"
 }
 
 interface ZynkAddExternalAccountResponse {
@@ -224,6 +221,11 @@ class ZynkRepository {
       throw new AppError(500, "ZYNK_INR_JURISDICTION_ID is not configured");
     }
 
+    const bankAccountTypeMap: Record<string, string> = {
+      SAVINGS: "saving",
+      CURRENT: "current",
+    };
+
     try {
       const response = await zynkClient.post<ZynkAddExternalAccountResponse>(
         `/api/v1/transformer/accounts/${encodeURIComponent(
@@ -233,7 +235,14 @@ class ZynkRepository {
           jurisdictionID: jurisdictionId,
           type: "deposit",
           ownershipType: "first_party",
-          account: data,
+          bankAccountType: bankAccountTypeMap[data.type] || "saving",
+          account: {
+            bankName: data.bankName,
+            accountHolderName: data.accountHolderName,
+            accountNumber: data.accountNumber,
+            routingNumber: data.routingNumber,
+            type: data.type,
+          },
         }
       );
       return validateZynkResponse<ZynkAddExternalAccountResponse>(
