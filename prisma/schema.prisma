@@ -22,6 +22,10 @@ model User {
   dateOfBirth           String // Encrypted date of birth (stored as ISO string)
   nationality           String?
 
+  referCode       String?       @unique
+  referredByCode  String?
+
+  role          UserRole      @default(USER)
   accountStatus AccountStatus @default(INITIAL)
   addresses     Address[]
   activities    Activity[]
@@ -56,6 +60,13 @@ enum AddressType {
   PERMANENT
 
   @@map("address_type")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+
+  @@map("user_role")
 }
 
 enum AccountStatus {
