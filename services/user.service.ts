@@ -4,6 +4,7 @@ import prismaClient, {
   decryptUserData,
 } from "../lib/prisma-client";
 import { createSearchHash } from "../lib/crypto";
+import { generateReferCode } from "../lib/refer-code";
 import userRepository from "../repositories/user.repository";
 import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema";
 
@@ -13,9 +14,10 @@ class UserService {
   }
 
   async create(data: CreateUserInput) {
-    // Encrypt data and prepare for database
+    // Encrypt data and prepare for database (exclude referredByCode from encryption)
+    const { referredByCode, ...dataToEncrypt } = data;
     const encryptedData = encryptUserData({
-      ...data,
+      ...dataToEncrypt,
       dateOfBirth: data.dateOfBirth.toISOString(),
     });
 
@@ -39,8 +41,35 @@ class UserService {
         throw new AppError(409, "User with this email already exists");
       }
 
+      // Validate referredByCode if provided
+      if (referredByCode) {
+        const referrer = await tx.user.findUnique({
+          where: { referCode: referredByCode },
+        });
+        if (!referrer) {
+          throw new AppError(400, "Invalid referral code");
+        }
+      }
+
+      // Generate a unique refer code with retry
+      let referCode: string | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const candidate = generateReferCode();
+        const existing = await tx.user.findUnique({
+          where: { referCode: candidate },
+        });
+        if (!existing) {
+          referCode = candidate;
+          break;
+        }
+      }
+
       const result = await tx.user.create({
-        data: encryptedData as Parameters<typeof tx.user.create>[0]["data"],
+        data: {
+          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          referCode,
+          ...(referredByCode ? { referredByCode } : {}),
+        },
         include: { addresses: true },
       });
 
@@ -87,6 +116,45 @@ class UserService {
       });
 
       return decryptUserData(result);
+    });
+  }
+
+  async validateReferCode(code: string) {
+    const user = await prismaClient.user.findUnique({
+      where: { referCode: code },
+    });
+    return { valid: !!user };
+  }
+
+  async requestReferCode(userId: string) {
+    return prismaClient.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId } });
+
+      if (!user) {
+        throw new AppError(404, "User not found");
+      }
+
+      // Idempotent: return existing code
+      if (user.referCode) {
+        return { referCode: user.referCode };
+      }
+
+      // Generate a unique refer code with retry
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const candidate = generateReferCode();
+        const existing = await tx.user.findUnique({
+          where: { referCode: candidate },
+        });
+        if (!existing) {
+          const updated = await tx.user.update({
+            where: { id: userId },
+            data: { referCode: candidate },
+          });
+          return { referCode: updated.referCode };
+        }
+      }
+
+      throw new AppError(500, "Failed to generate unique refer code");
     });
   }
 }

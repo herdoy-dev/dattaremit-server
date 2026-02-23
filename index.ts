@@ -9,6 +9,7 @@ import prismaClient from "./lib/prisma-client";
 import auth from "./middlewares/auth";
 import error from "./middlewares/error";
 import router from "./routes";
+import adminRouter from "./routes/admin.routes";
 import webhooks from "./routes/webhook.routes";
 import exchangeRate from "./routes/exchange-rate.routes";
 
@@ -73,6 +74,7 @@ app.get("/health", async (req, res) => {
 
 app.use("/api", webhooks);
 app.use("/api", exchangeRate);
+app.use("/api/admin", adminRouter);
 app.use("/api", auth, router);
 app.use(error);
 

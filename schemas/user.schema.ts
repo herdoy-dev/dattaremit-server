@@ -57,6 +57,8 @@ export const createUserSchema = Joi.object({
     "string.empty": "Nationality cannot be empty",
     "string.max": "Nationality cannot exceed 100 characters",
   }),
+
+  referredByCode: Joi.string().trim().optional(),
 });
 
 export const updateUserSchema = Joi.object({
@@ -125,6 +127,7 @@ export type CreateUserInput = {
   phoneNumber: string;
   dateOfBirth: Date;
   nationality?: string;
+  referredByCode?: string;
 };
 
 // Auth-critical fields that should NEVER be updatable via public API
