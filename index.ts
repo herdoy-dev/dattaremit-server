@@ -19,7 +19,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:3000",
+      "https://admin.dattaremit.com",
+    ],
   })
 );
 
@@ -53,7 +56,7 @@ app.use(
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
-app.get("/health", async (req, res) => {
+app.get("/health", async (_req, res) => {
   try {
     // Verify database connectivity
     await prismaClient.$queryRaw`SELECT 1`;
