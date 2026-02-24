@@ -171,7 +171,7 @@ class AdminService {
     const result = await prismaClient.$queryRaw<
       { type: string; count: bigint }[]
     >(
-      Prisma.sql`SELECT type, COUNT(*) as count FROM activities WHERE type LIKE 'KYC_%' GROUP BY type`
+      Prisma.sql`SELECT type::text, COUNT(*) as count FROM activities WHERE type::text LIKE 'KYC_%' GROUP BY type`
     );
 
     return result.map((row) => ({
