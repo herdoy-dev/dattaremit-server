@@ -1,7 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
-import type { AccountStatus, ActivityStatus, ActivityType } from "../generated/prisma/client";
+import type { AccountStatus, ActivityStatus, ActivityType, UserRole } from "../generated/prisma/client";
 import APIResponse from "../lib/APIResponse";
+import AppError from "../lib/AppError";
 import adminService from "../services/admin.service";
+import {
+  adminCreateUserSchema,
+  adminUpdateUserSchema,
+  changeRoleSchema,
+} from "../schemas/admin.schema";
 
 class AdminController {
   async getDashboardStats(req: Request, res: Response, next: NextFunction) {
@@ -98,6 +104,83 @@ class AdminController {
       res
         .status(200)
         .json(new APIResponse(true, "KYC activity chart data retrieved successfully", data));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { error, value } = adminCreateUserSchema.validate(req.body, {
+        abortEarly: false,
+      });
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await adminService.createUser(value);
+      res
+        .status(201)
+        .json(new APIResponse(true, "User created successfully", user));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const { error, value } = adminUpdateUserSchema.validate(req.body, {
+        abortEarly: false,
+      });
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await adminService.updateUser(id, value);
+      res
+        .status(200)
+        .json(new APIResponse(true, "User updated successfully", user));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      await adminService.deleteUser(id);
+      res
+        .status(200)
+        .json(new APIResponse(true, "User deleted successfully"));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async changeUserRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const { error, value } = changeRoleSchema.validate(req.body, {
+        abortEarly: false,
+      });
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await adminService.changeUserRole(id, value.role as UserRole);
+      res
+        .status(200)
+        .json(new APIResponse(true, "User role updated successfully", user));
     } catch (error) {
       next(error);
     }

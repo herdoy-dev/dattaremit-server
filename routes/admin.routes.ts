@@ -9,7 +9,11 @@ router.use(adminAuth);
 
 router.get("/stats", adminController.getDashboardStats as RequestHandler);
 router.get("/users", adminController.getUsers as RequestHandler);
+router.post("/users", adminController.createUser as RequestHandler);
 router.get("/users/:id", adminController.getUserById as RequestHandler);
+router.put("/users/:id", adminController.updateUser as RequestHandler);
+router.delete("/users/:id", adminController.deleteUser as RequestHandler);
+router.patch("/users/:id/role", adminController.changeUserRole as RequestHandler);
 router.get("/activities", adminController.getActivities as RequestHandler);
 router.get("/charts/registrations", adminController.getRegistrationChart as RequestHandler);
 router.get("/charts/activity-types", adminController.getActivityTypeChart as RequestHandler);

@@ -1,7 +1,11 @@
 import { Prisma } from "../generated/prisma/client";
-import type { AccountStatus, ActivityStatus, ActivityType } from "../generated/prisma/client";
+import type { AccountStatus, ActivityStatus, ActivityType, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
-import prismaClient, { decryptUserData, decryptNestedUser } from "../lib/prisma-client";
+import prismaClient, { encryptUserData, decryptUserData, decryptNestedUser } from "../lib/prisma-client";
+import crypto from "crypto";
+import { createSearchHash } from "../lib/crypto";
+import { generateReferCode } from "../lib/refer-code";
+import type { AdminCreateUserInput, AdminUpdateUserInput } from "../schemas/admin.schema";
 
 class AdminService {
   async getDashboardStats() {
@@ -178,6 +182,114 @@ class AdminService {
       type: row.type,
       count: Number(row.count),
     }));
+  }
+
+  async createUser(data: AdminCreateUserInput) {
+    const { role, accountStatus, ...dataToEncrypt } = data;
+    const encryptedData = encryptUserData({
+      ...dataToEncrypt,
+      dateOfBirth: data.dateOfBirth.toISOString(),
+    });
+
+    return prismaClient.$transaction(async (tx) => {
+      // Check email uniqueness
+      const emailHash = createSearchHash(data.email);
+      const existingUser = await tx.user.findUnique({
+        where: { emailHash },
+      });
+
+      if (existingUser) {
+        throw new AppError(409, "User with this email already exists");
+      }
+
+      // Generate unique refer code
+      let referCode: string | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const candidate = generateReferCode();
+        const existing = await tx.user.findUnique({
+          where: { referCode: candidate },
+        });
+        if (!existing) {
+          referCode = candidate;
+          break;
+        }
+      }
+
+      const result = await tx.user.create({
+        data: {
+          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          clerkUserId: `admin_created_${crypto.randomUUID()}`,
+          role: role || "USER",
+          accountStatus: accountStatus || "INITIAL",
+          referCode,
+        },
+        include: { addresses: true },
+      });
+
+      return decryptUserData(result);
+    });
+  }
+
+  async updateUser(id: string, data: AdminUpdateUserInput) {
+    const dataToUpdate: Record<string, unknown> = { ...data };
+    if (data.dateOfBirth) {
+      dataToUpdate.dateOfBirth = data.dateOfBirth.toISOString();
+    }
+    const encryptedData = encryptUserData(dataToUpdate);
+
+    return prismaClient.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id } });
+
+      if (!user) {
+        throw new AppError(404, "User not found");
+      }
+
+      // Check email uniqueness if email is being updated
+      if (data.email) {
+        const newEmailHash = createSearchHash(data.email);
+        if (newEmailHash !== user.emailHash) {
+          const existingUser = await tx.user.findUnique({
+            where: { emailHash: newEmailHash },
+          });
+          if (existingUser) {
+            throw new AppError(409, "User with this email already exists");
+          }
+        }
+      }
+
+      const result = await tx.user.update({
+        where: { id },
+        data: encryptedData as Parameters<typeof tx.user.update>[0]["data"],
+        include: { addresses: true },
+      });
+
+      return decryptUserData(result);
+    });
+  }
+
+  async deleteUser(id: string) {
+    const user = await prismaClient.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    await prismaClient.user.delete({ where: { id } });
+  }
+
+  async changeUserRole(id: string, role: UserRole) {
+    const user = await prismaClient.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    const result = await prismaClient.user.update({
+      where: { id },
+      data: { role },
+    });
+
+    return decryptUserData(result);
   }
 
   async getReferralStats() {
