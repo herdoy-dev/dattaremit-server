@@ -6,6 +6,7 @@ import adminService from "../services/admin.service";
 import {
   adminCreateUserSchema,
   adminUpdateUserSchema,
+  adminCreatePromoterSchema,
   changeRoleSchema,
 } from "../schemas/admin.schema";
 
@@ -130,6 +131,72 @@ class AdminController {
     }
   }
 
+  async createPromoter(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { error, value } = adminCreatePromoterSchema.validate(req.body, {
+        abortEarly: false,
+      });
+      if (error) {
+        throw new AppError(
+          400,
+          error.details.map((d) => d.message).join(", ")
+        );
+      }
+
+      const user = await adminService.createPromoter(value);
+      res
+        .status(201)
+        .json(new APIResponse(true, "Promoter created successfully", user));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async previewReferCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const firstName = req.query.firstName as string;
+      const lastName = req.query.lastName as string;
+
+      if (!firstName || !lastName) {
+        throw new AppError(400, "firstName and lastName are required");
+      }
+
+      const result = await adminService.previewReferCode(firstName, lastName);
+      res
+        .status(200)
+        .json(new APIResponse(true, "Refer code preview generated", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getPromoters(req: Request, res: Response, next: NextFunction) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string | undefined;
+      const role = req.query.role as "INFLUENCER" | "PROMOTER" | undefined;
+
+      const result = await adminService.getPromoters(page, limit, search, role);
+      res
+        .status(200)
+        .json(new APIResponse(true, "Promoters retrieved successfully", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMarketingStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await adminService.getMarketingStats();
+      res
+        .status(200)
+        .json(new APIResponse(true, "Marketing stats retrieved successfully", data));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updateUser(req: Request, res: Response, next: NextFunction) {
     try {
       const id = req.params.id as string;
@@ -188,7 +255,11 @@ class AdminController {
 
   async getReferralStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await adminService.getReferralStats();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string | undefined;
+
+      const data = await adminService.getReferralStats(page, limit, search);
       res
         .status(200)
         .json(new APIResponse(true, "Referral stats retrieved successfully", data));

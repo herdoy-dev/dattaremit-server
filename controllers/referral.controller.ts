@@ -13,7 +13,7 @@ class ReferralController {
           .json(new APIResponse(false, "Referral code is required"));
         return;
       }
-      const result = await userService.validateReferCode(code.trim());
+      const result = await userService.validateReferCode(code.trim().toUpperCase());
       res
         .status(200)
         .json(new APIResponse(true, "Referral code checked", result));

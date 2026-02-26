@@ -24,6 +24,7 @@ model User {
 
   referCode       String?       @unique
   referredByCode  String?
+  referValue      Int           @default(1)
 
   role          UserRole      @default(USER)
   accountStatus AccountStatus @default(INITIAL)
@@ -65,6 +66,8 @@ enum AddressType {
 enum UserRole {
   ADMIN
   USER
+  INFLUENCER
+  PROMOTER
 
   @@map("user_role")
 }

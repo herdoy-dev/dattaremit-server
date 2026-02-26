@@ -4,7 +4,7 @@ import prismaClient, {
   decryptUserData,
 } from "../lib/prisma-client";
 import { createSearchHash } from "../lib/crypto";
-import { generateReferCode } from "../lib/refer-code";
+import { generateUserReferCode } from "../lib/refer-code";
 import userRepository from "../repositories/user.repository";
 import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema";
 
@@ -44,7 +44,7 @@ class UserService {
       // Validate referredByCode if provided
       if (referredByCode) {
         const referrer = await tx.user.findUnique({
-          where: { referCode: referredByCode },
+          where: { referCode: referredByCode.toUpperCase() },
         });
         if (!referrer) {
           throw new AppError(400, "Invalid referral code");
@@ -54,7 +54,7 @@ class UserService {
       // Generate a unique refer code with retry
       let referCode: string | null = null;
       for (let attempt = 0; attempt < 3; attempt++) {
-        const candidate = generateReferCode();
+        const candidate = generateUserReferCode();
         const existing = await tx.user.findUnique({
           where: { referCode: candidate },
         });
@@ -141,7 +141,7 @@ class UserService {
 
       // Generate a unique refer code with retry
       for (let attempt = 0; attempt < 3; attempt++) {
-        const candidate = generateReferCode();
+        const candidate = generateUserReferCode();
         const existing = await tx.user.findUnique({
           where: { referCode: candidate },
         });
