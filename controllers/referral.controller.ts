@@ -1,4 +1,4 @@
-import type { NextFunction, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import APIResponse from "../lib/APIResponse";
 import type { AuthRequest } from "../middlewares/auth";
 import userService from "../services/user.service";
@@ -28,6 +28,20 @@ class ReferralController {
       res
         .status(200)
         .json(new APIResponse(true, "Refer code generated successfully", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getTrackerStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { referCode } = req.params;
+      const result = await userService.getReferralTrackerStats(
+        referCode.trim().toUpperCase()
+      );
+      res
+        .status(200)
+        .json(new APIResponse(true, "Tracker stats retrieved", result));
     } catch (error) {
       next(error);
     }

@@ -12,6 +12,7 @@ import router from "./routes";
 import adminRouter from "./routes/admin.routes";
 import webhooks from "./routes/webhook.routes";
 import exchangeRate from "./routes/exchange-rate.routes";
+import referralPublic from "./routes/referral-public.routes";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
+      "http://localhost:3001",
       "https://admin.dattaremit.com",
     ],
   })
@@ -77,6 +79,7 @@ app.get("/health", async (_req, res) => {
 
 app.use("/api", webhooks);
 app.use("/api", exchangeRate);
+app.use("/api", referralPublic);
 app.use("/api/admin", adminRouter);
 app.use("/api", auth, router);
 app.use(error);
