@@ -2,10 +2,7 @@
 CREATE TYPE "address_type" AS ENUM ('PRESENT', 'PERMANENT');
 
 -- CreateEnum
-CREATE TYPE "external_account_status" AS ENUM ('ACTIVE', 'INACTIVE');
-
--- CreateEnum
-CREATE TYPE "teleport_status" AS ENUM ('ACTIVE', 'INACTIVE');
+CREATE TYPE "user_role" AS ENUM ('ADMIN', 'USER', 'INFLUENCER', 'PROMOTER');
 
 -- CreateEnum
 CREATE TYPE "account_status" AS ENUM ('INITIAL', 'ACTIVE', 'PENDING', 'REJECTED');
@@ -17,7 +14,7 @@ CREATE TYPE "idempotency_status" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
 CREATE TYPE "activity_status" AS ENUM ('PENDING', 'FAILED', 'COMPLETE');
 
 -- CreateEnum
-CREATE TYPE "activity_type" AS ENUM ('DEPOSIT', 'WITHDRAWAL', 'EXTERNAL_ACCOUNT_ADDED', 'EXTERNAL_ACCOUNT_REMOVED', 'TRANSFER', 'PAYMENT', 'REFUND', 'KYC_SUBMITTED', 'KYC_APPROVED', 'KYC_REJECTED', 'KYC_PENDING', 'KYC_VERIFIED', 'KYC_FAILED', 'ACCOUNT_APPROVED', 'ACCOUNT_ACTIVATED');
+CREATE TYPE "activity_type" AS ENUM ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'PAYMENT', 'REFUND', 'KYC_SUBMITTED', 'KYC_APPROVED', 'KYC_REJECTED', 'KYC_PENDING', 'KYC_VERIFIED', 'KYC_FAILED', 'ACCOUNT_APPROVED', 'ACCOUNT_ACTIVATED', 'ACCOUNT_DEACTIVATED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -25,14 +22,21 @@ CREATE TABLE "users" (
     "firstName" TEXT NOT NULL,
     "clerkUserId" TEXT NOT NULL,
     "zynkEntityId" TEXT,
-    "zynkFundingAccountId" TEXT,
+    "zynkExternalAccountId" TEXT,
+    "zynkDepositAccountId" TEXT,
     "lastName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "emailHash" TEXT NOT NULL,
     "phoneNumberPrefix" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
     "dateOfBirth" TEXT NOT NULL,
+    "nationality" TEXT,
+    "referCode" TEXT,
+    "referredByCode" TEXT,
+    "referValue" INTEGER NOT NULL DEFAULT 1,
+    "role" "user_role" NOT NULL DEFAULT 'USER',
     "accountStatus" "account_status" NOT NULL DEFAULT 'INITIAL',
+    "achPushEnabled" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -45,7 +49,6 @@ CREATE TABLE "addresses" (
     "type" "address_type" NOT NULL DEFAULT 'PRESENT',
     "addressLine1" TEXT NOT NULL,
     "addressLine2" TEXT,
-    "locality" TEXT NOT NULL,
     "city" TEXT NOT NULL,
     "state" TEXT NOT NULL,
     "country" TEXT NOT NULL,
@@ -56,34 +59,6 @@ CREATE TABLE "addresses" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "addresses_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "external_accounts" (
-    "id" UUID NOT NULL,
-    "userId" UUID NOT NULL,
-    "zynkExternalAccountId" TEXT,
-    "label" TEXT,
-    "type" TEXT NOT NULL DEFAULT 'withdrawal',
-    "status" "external_account_status" NOT NULL DEFAULT 'ACTIVE',
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
-    "deleted_at" TIMESTAMP(3),
-
-    CONSTRAINT "external_accounts_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "teleports" (
-    "id" UUID NOT NULL,
-    "userId" UUID NOT NULL,
-    "externalAccountId" UUID NOT NULL,
-    "zynkTeleportId" TEXT,
-    "status" "teleport_status" NOT NULL DEFAULT 'ACTIVE',
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "teleports_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -128,25 +103,13 @@ CREATE UNIQUE INDEX "users_clerkUserId_key" ON "users"("clerkUserId");
 CREATE UNIQUE INDEX "users_emailHash_key" ON "users"("emailHash");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_referCode_key" ON "users"("referCode");
+
+-- CreateIndex
 CREATE INDEX "addresses_userId_idx" ON "addresses"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "addresses_userId_type_key" ON "addresses"("userId", "type");
-
--- CreateIndex
-CREATE UNIQUE INDEX "external_accounts_zynkExternalAccountId_key" ON "external_accounts"("zynkExternalAccountId");
-
--- CreateIndex
-CREATE INDEX "external_accounts_userId_status_idx" ON "external_accounts"("userId", "status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "external_accounts_userId_key" ON "external_accounts"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "teleports_userId_key" ON "teleports"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "teleports_zynkTeleportId_key" ON "teleports"("zynkTeleportId");
 
 -- CreateIndex
 CREATE INDEX "activities_userId_idx" ON "activities"("userId");
@@ -168,15 +131,6 @@ CREATE UNIQUE INDEX "idempotency_keys_userId_operation_key_key" ON "idempotency_
 
 -- AddForeignKey
 ALTER TABLE "addresses" ADD CONSTRAINT "addresses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "external_accounts" ADD CONSTRAINT "external_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "teleports" ADD CONSTRAINT "teleports_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "teleports" ADD CONSTRAINT "teleports_externalAccountId_fkey" FOREIGN KEY ("externalAccountId") REFERENCES "external_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "activities" ADD CONSTRAINT "activities_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -26,8 +26,9 @@ model User {
   referredByCode  String?
   referValue      Int           @default(1)
 
-  role          UserRole      @default(USER)
-  accountStatus AccountStatus @default(INITIAL)
+  role            UserRole      @default(USER)
+  accountStatus   AccountStatus @default(INITIAL)
+  achPushEnabled  Boolean       @default(false)
   addresses     Address[]
   activities    Activity[]
   created_at    DateTime      @default(now())

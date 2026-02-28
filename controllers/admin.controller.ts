@@ -253,6 +253,24 @@ class AdminController {
     }
   }
 
+  async toggleAchPush(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const { enabled } = req.body;
+
+      if (typeof enabled !== "boolean") {
+        throw new AppError(400, "enabled must be a boolean");
+      }
+
+      const user = await adminService.toggleAchPush(id, enabled);
+      res
+        .status(200)
+        .json(new APIResponse(true, "ACH push setting updated successfully", user));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getReferralStats(req: Request, res: Response, next: NextFunction) {
     try {
       const page = parseInt(req.query.page as string) || 1;

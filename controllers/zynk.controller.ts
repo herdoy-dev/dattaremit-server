@@ -14,10 +14,11 @@ const addExternalAccountSchema = Joi.object({
     "string.empty": "Account name cannot be empty",
     "any.required": "Account name is required",
   }),
-  paymentRail: Joi.string().trim().min(1).required().messages({
-    "string.empty": "Payment rail cannot be empty",
-    "any.required": "Payment rail is required",
-  }),
+  paymentRail: Joi.string()
+    .trim()
+    .valid("ach_pull", "ach_push")
+    .optional()
+    .default("ach_pull"),
   plaidPublicToken: Joi.string().trim().min(1).required().messages({
     "string.empty": "Plaid public token cannot be empty",
     "any.required": "Plaid public token is required",

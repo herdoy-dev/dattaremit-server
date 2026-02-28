@@ -116,10 +116,16 @@ class ZynkService {
       );
     }
 
+    // Enforce payment rail eligibility — silently downgrade if not enabled
+    const resolvedPaymentRail =
+      data.paymentRail === "ach_push" && user.achPushEnabled
+        ? "ach_push"
+        : "ach_pull";
+
     // Step 1: Add external account via Zynk API
     const addResponse = await zynkRepository.addExternalAccount(
       user.zynkEntityId,
-      data
+      { ...data, paymentRail: resolvedPaymentRail }
     );
 
     const externalAccountId = addResponse.data.accountId;

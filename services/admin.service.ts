@@ -426,6 +426,21 @@ class AdminService {
     return decryptUserData(result);
   }
 
+  async toggleAchPush(id: string, enabled: boolean) {
+    const user = await prismaClient.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    const result = await prismaClient.user.update({
+      where: { id },
+      data: { achPushEnabled: enabled },
+    });
+
+    return decryptUserData(result);
+  }
+
   async getReferralStats(page = 1, limit = 20, search?: string) {
     const totalReferrals = await prismaClient.user.count({
       where: { referredByCode: { not: null } },
