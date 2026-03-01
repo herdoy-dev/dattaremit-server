@@ -24,8 +24,9 @@ app.use(
       "http://localhost:3000",
       "http://localhost:3001",
       "https://admin.dattaremit.com",
+      "https://refer.dattaremit.com",
     ],
-  })
+  }),
 );
 
 app.use(
@@ -41,7 +42,7 @@ app.use(
     hidePoweredBy: true,
     noSniff: true,
     referrerPolicy: { policy: "no-referrer" },
-  })
+  }),
 );
 
 app.use(
@@ -52,7 +53,7 @@ app.use(
       success: false,
       message: "Too many requests. Please try again later.",
     },
-  })
+  }),
 );
 
 app.use(express.json({ limit: "100kb" }));
@@ -87,14 +88,14 @@ app.use(error);
 const port = process.env.PORT || 5000;
 
 const server = app.listen(port, () =>
-  logger.info(`Server running on http://localhost:${port}`)
+  logger.info(`Server running on http://localhost:${port}`),
 );
 
 // Helper to ensure log is written before continuing
 function logAndFlush(
   level: "error" | "info" | "warn",
   message: string,
-  meta?: object
+  meta?: object,
 ): Promise<void> {
   return new Promise((resolve) => {
     const callback = () => resolve();
