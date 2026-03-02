@@ -25,6 +25,7 @@ app.use(
       "http://localhost:3001",
       "https://admin.dattaremit.com",
       "https://refer.dattaremit.com",
+      "https://app.dattaremit.com",
     ],
   }),
 );
