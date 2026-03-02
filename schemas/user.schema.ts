@@ -53,9 +53,9 @@ export const createUserSchema = Joi.object({
     "any.required": "Date of birth is required",
   }),
 
-  nationality: Joi.string().trim().min(1).max(100).optional().messages({
+  nationality: Joi.string().trim().valid("US", "IN").optional().messages({
     "string.empty": "Nationality cannot be empty",
-    "string.max": "Nationality cannot exceed 100 characters",
+    "any.only": "Nationality must be US or IN",
   }),
 
   referredByCode: Joi.string().trim().optional(),
@@ -100,9 +100,9 @@ export const updateUserSchema = Joi.object({
     "date.max": "Date of birth cannot be in the future",
   }),
 
-  nationality: Joi.string().trim().min(1).max(100).messages({
+  nationality: Joi.string().trim().valid("US", "IN").messages({
     "string.empty": "Nationality cannot be empty",
-    "string.max": "Nationality cannot exceed 100 characters",
+    "any.only": "Nationality must be US or IN",
   }),
 })
   .min(1)

@@ -33,9 +33,9 @@ export const createAddressSchema = Joi.object({
     "any.required": "State is required",
   }),
 
-  country: Joi.string().trim().min(1).max(100).required().messages({
+  country: Joi.string().trim().valid("US", "IN").required().messages({
     "string.empty": "Country cannot be empty",
-    "string.max": "Country cannot exceed 100 characters",
+    "any.only": "Country must be US or IN",
     "any.required": "Country is required",
   }),
 
@@ -80,9 +80,9 @@ export const updateAddressSchema = Joi.object({
     "string.max": "State cannot exceed 100 characters",
   }),
 
-  country: Joi.string().trim().min(1).max(100).messages({
+  country: Joi.string().trim().valid("US", "IN").messages({
     "string.empty": "Country cannot be empty",
-    "string.max": "Country cannot exceed 100 characters",
+    "any.only": "Country must be US or IN",
   }),
 
   postalCode: Joi.string().trim().min(1).max(20).messages({
@@ -111,7 +111,7 @@ export type CreateAddressInput = {
   addressLine2?: string;
   city: string;
   state: string;
-  country: string;
+  country: "US" | "IN";
   postalCode: string;
   isDefault?: boolean;
   userId: string;

@@ -115,20 +115,24 @@ class ZynkRepository {
     try {
       const response = await zynkClient.post<ZynkEntityResponse>(
         "/api/v1/transformer/entity/create",
-        data
+        data,
       );
       return validateZynkResponse<ZynkEntityResponse>(
         response.data,
         zynkEntityResponseSchema,
-        "Failed to create entity"
+        "Failed to create entity",
       );
     } catch (error) {
       handleZynkError(error, "API request failed");
     }
   }
 
-  async startKyc(entityId: string, nationality: string): Promise<ZynkKycResponse> {
-    const envKey = nationality === "US" ? "ZYNK_US_ROUTING_ID" : "ZYNK_INR_ROUTING_ID";
+  async startKyc(
+    entityId: string,
+    nationality: string,
+  ): Promise<ZynkKycResponse> {
+    const envKey =
+      nationality === "US" ? "ZYNK_US_ROUTING_ID" : "ZYNK_INR_ROUTING_ID";
     const routingId = process.env[envKey];
 
     if (!routingId) {
@@ -142,13 +146,13 @@ class ZynkRepository {
       try {
         const response = await zynkClient.post<ZynkKycResponse>(
           `/api/v1/transformer/entity/kyc/${encodeURIComponent(
-            entityId
-          )}/${routingId}`
+            entityId,
+          )}/${routingId}`,
         );
         return validateZynkResponse<ZynkKycResponse>(
           response.data,
           zynkKycResponseSchema,
-          "Failed to start KYC"
+          "Failed to start KYC",
         );
       } catch (error) {
         if (error instanceof AxiosError && error.response?.status === 404) {
@@ -168,12 +172,12 @@ class ZynkRepository {
   async getKycStatus(entityId: string): Promise<ZynkKycStatusResponse> {
     try {
       const response = await zynkClient.get<ZynkKycStatusResponse>(
-        `/api/v1/transformer/entity/kyc/${encodeURIComponent(entityId)}`
+        `/api/v1/transformer/entity/kyc/${encodeURIComponent(entityId)}`,
       );
       return validateZynkResponse<ZynkKycStatusResponse>(
         response.data,
         zynkKycStatusResponseSchema,
-        "Failed to get KYC status"
+        "Failed to get KYC status",
       );
     } catch (error) {
       handleZynkError(error, "Failed to get KYC status");
@@ -182,7 +186,7 @@ class ZynkRepository {
 
   async addExternalAccount(
     entityId: string,
-    data: ZynkAddExternalAccountData
+    data: ZynkAddExternalAccountData,
   ): Promise<ZynkAddExternalAccountResponse> {
     const jurisdictionId = process.env.ZYNK_US_JURISDICTION_ID;
 
@@ -193,19 +197,19 @@ class ZynkRepository {
     try {
       const response = await zynkClient.post<ZynkAddExternalAccountResponse>(
         `/api/v1/transformer/accounts/${encodeURIComponent(
-          entityId
+          entityId,
         )}/add/external_account`,
         {
           jurisdictionID: jurisdictionId,
           type: "plaid",
           ownershipType: "first_party",
           account: data,
-        }
+        },
       );
       return validateZynkResponse<ZynkAddExternalAccountResponse>(
         response.data,
         zynkAddExternalAccountResponseSchema,
-        "Failed to add external account"
+        "Failed to add external account",
       );
     } catch (error) {
       handleZynkError(error, "Failed to add external account");
@@ -214,7 +218,7 @@ class ZynkRepository {
 
   async addDepositAccount(
     entityId: string,
-    data: ZynkAddDepositAccountData
+    data: ZynkAddDepositAccountData,
   ): Promise<ZynkAddExternalAccountResponse> {
     const jurisdictionId = process.env.ZYNK_INR_JURISDICTION_ID;
 
@@ -230,7 +234,7 @@ class ZynkRepository {
     try {
       const response = await zynkClient.post<ZynkAddExternalAccountResponse>(
         `/api/v1/transformer/accounts/${encodeURIComponent(
-          entityId
+          entityId,
         )}/add/external_account`,
         {
           jurisdictionID: jurisdictionId,
@@ -244,12 +248,12 @@ class ZynkRepository {
             routingNumber: data.routingNumber,
             type: data.type,
           },
-        }
+        },
       );
       return validateZynkResponse<ZynkAddExternalAccountResponse>(
         response.data,
         zynkAddExternalAccountResponseSchema,
-        "Failed to add deposit account"
+        "Failed to add deposit account",
       );
     } catch (error) {
       handleZynkError(error, "Failed to add deposit account");
@@ -258,19 +262,18 @@ class ZynkRepository {
 
   async enableExternalAccount(
     entityId: string,
-    accountId: string
+    accountId: string,
   ): Promise<ZynkEnableExternalAccountResponse> {
     try {
-      const response =
-        await zynkClient.post<ZynkEnableExternalAccountResponse>(
-          `/api/v1/transformer/accounts/${encodeURIComponent(
-            entityId
-          )}/enable/external_account/${encodeURIComponent(accountId)}`
-        );
+      const response = await zynkClient.post<ZynkEnableExternalAccountResponse>(
+        `/api/v1/transformer/accounts/${encodeURIComponent(
+          entityId,
+        )}/enable/external_account/${encodeURIComponent(accountId)}`,
+      );
       return validateZynkResponse<ZynkEnableExternalAccountResponse>(
         response.data,
         zynkEnableExternalAccountResponseSchema,
-        "Failed to enable external account"
+        "Failed to enable external account",
       );
     } catch (error) {
       handleZynkError(error, "Failed to enable external account");
@@ -279,7 +282,7 @@ class ZynkRepository {
 
   async generatePlaidLinkToken(
     entityId: string,
-    options?: { androidPackageName?: string; redirectUri?: string }
+    options?: { androidPackageName?: string; redirectUri?: string },
   ): Promise<ZynkPlaidLinkTokenResponse> {
     const jurisdictionId = process.env.ZYNK_US_JURISDICTION_ID;
 
@@ -301,16 +304,16 @@ class ZynkRepository {
 
       const response = await zynkClient.post(
         `/api/v1/transformer/entity/${encodeURIComponent(
-          entityId
+          entityId,
         )}/generate/plaid-link-token`,
-        body
+        body,
       );
       // Zynk wraps responses in { success, data }, extract the inner data
       const zynkBody = response.data as { success: boolean; data: unknown };
       return validateZynkResponse<ZynkPlaidLinkTokenResponse>(
         zynkBody.data,
         zynkPlaidLinkTokenResponseSchema,
-        "Failed to generate Plaid link token"
+        "Failed to generate Plaid link token",
       );
     } catch (error) {
       handleZynkError(error, "Failed to generate Plaid link token");
