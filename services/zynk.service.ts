@@ -69,7 +69,14 @@ class ZynkService {
       );
     }
 
-    const response = await zynkRepository.startKyc(user.zynkEntityId);
+    if (!user.nationality) {
+      throw new AppError(
+        400,
+        "User nationality is required for KYC. Please set your nationality first."
+      );
+    }
+
+    const response = await zynkRepository.startKyc(user.zynkEntityId, user.nationality);
 
     await activityLogger.logActivity({
       userId,

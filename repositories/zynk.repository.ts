@@ -127,11 +127,12 @@ class ZynkRepository {
     }
   }
 
-  async startKyc(entityId: string): Promise<ZynkKycResponse> {
-    const routingId = process.env.ZYNK_ROUTING_ID;
+  async startKyc(entityId: string, nationality: string): Promise<ZynkKycResponse> {
+    const envKey = nationality === "US" ? "ZYNK_US_ROUTING_ID" : "ZYNK_INR_ROUTING_ID";
+    const routingId = process.env[envKey];
 
     if (!routingId) {
-      throw new AppError(500, "ZYNK_ROUTING_ID is not configured");
+      throw new AppError(500, `${envKey} is not configured`);
     }
 
     const maxRetries = 3;
@@ -183,10 +184,10 @@ class ZynkRepository {
     entityId: string,
     data: ZynkAddExternalAccountData
   ): Promise<ZynkAddExternalAccountResponse> {
-    const jurisdictionId = process.env.ZYNK_JURISDICTION_ID;
+    const jurisdictionId = process.env.ZYNK_US_JURISDICTION_ID;
 
     if (!jurisdictionId) {
-      throw new AppError(500, "ZYNK_JURISDICTION_ID is not configured");
+      throw new AppError(500, "ZYNK_US_JURISDICTION_ID is not configured");
     }
 
     try {
@@ -280,10 +281,10 @@ class ZynkRepository {
     entityId: string,
     options?: { androidPackageName?: string; redirectUri?: string }
   ): Promise<ZynkPlaidLinkTokenResponse> {
-    const jurisdictionId = process.env.ZYNK_JURISDICTION_ID;
+    const jurisdictionId = process.env.ZYNK_US_JURISDICTION_ID;
 
     if (!jurisdictionId) {
-      throw new AppError(500, "ZYNK_JURISDICTION_ID is not configured");
+      throw new AppError(500, "ZYNK_US_JURISDICTION_ID is not configured");
     }
 
     try {
