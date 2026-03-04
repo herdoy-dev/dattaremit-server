@@ -12,10 +12,25 @@ import {
   zynkPlaidLinkTokenResponseSchema,
 } from "../schemas/zynk-response.schema";
 
+interface ZynkEntityAddress {
+  addressLine1: string;
+  addressLine2: string;
+  locality: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+}
+
 interface ZynkEntityData {
   email: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
   phoneNumberPrefix: string;
+  nationality: string;
   phoneNumber: string;
+  permanentAddress: ZynkEntityAddress;
 }
 
 interface ZynkEntityResponse {

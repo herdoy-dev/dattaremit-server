@@ -2,6 +2,7 @@ import { ActivityStatus, ActivityType } from "../generated/prisma/client";
 import activityLogger from "../lib/activity-logger";
 import AppError from "../lib/AppError";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
+import addressRepository from "../repositories/address.repository";
 import userRepository from "../repositories/user.repository";
 import type {
   ZynkEntityData,
@@ -18,10 +19,31 @@ class ZynkService {
       throw new AppError(404, "User not found");
     }
 
+    const address = await addressRepository.findAllByUserId(userId);
+    if (!address || address.length === 0) {
+      throw new AppError(
+        400,
+        "At least one address is required to create entity",
+      );
+    }
+
     const entityData: ZynkEntityData = {
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName ? user.lastName : " ",
       phoneNumberPrefix: user.phoneNumberPrefix.replace("+", ""),
       phoneNumber: user.phoneNumber,
+      dateOfBirth: user.dateOfBirth,
+      nationality: address[0]?.country as string,
+      permanentAddress: {
+        addressLine1: address[0]?.addressLine1 as string,
+        addressLine2: address[0]?.addressLine2 as string,
+        locality: address[0]?.state as string,
+        city: address[0]?.city as string,
+        state: address[0]?.state as string,
+        country: address[0]?.country as string,
+        postalCode: address[0]?.postalCode as string,
+      },
     };
 
     // Call external API first (cannot be rolled back)
@@ -65,18 +87,21 @@ class ZynkService {
     if (!user.zynkEntityId) {
       throw new AppError(
         400,
-        "User does not have a Zynk entity. Create entity first."
+        "User does not have a Zynk entity. Create entity first.",
       );
     }
 
     if (!user.nationality) {
       throw new AppError(
         400,
-        "User nationality is required for KYC. Please set your nationality first."
+        "User nationality is required for KYC. Please set your nationality first.",
       );
     }
 
-    const response = await zynkRepository.startKyc(user.zynkEntityId, user.nationality);
+    const response = await zynkRepository.startKyc(
+      user.zynkEntityId,
+      user.nationality,
+    );
 
     await activityLogger.logActivity({
       userId,
@@ -98,7 +123,7 @@ class ZynkService {
     if (!user.zynkEntityId) {
       throw new AppError(
         400,
-        "User does not have a Zynk entity. Create entity first."
+        "User does not have a Zynk entity. Create entity first.",
       );
     }
 
@@ -107,10 +132,7 @@ class ZynkService {
     return response.data;
   }
 
-  async addExternalAccount(
-    userId: string,
-    data: ZynkAddExternalAccountData
-  ) {
+  async addExternalAccount(userId: string, data: ZynkAddExternalAccountData) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError(404, "User not found");
@@ -119,7 +141,7 @@ class ZynkService {
     if (!user.zynkEntityId) {
       throw new AppError(
         400,
-        "User does not have a Zynk entity. Create entity first."
+        "User does not have a Zynk entity. Create entity first.",
       );
     }
 
@@ -132,7 +154,7 @@ class ZynkService {
     // Step 1: Add external account via Zynk API
     const addResponse = await zynkRepository.addExternalAccount(
       user.zynkEntityId,
-      { ...data, paymentRail: resolvedPaymentRail }
+      { ...data, paymentRail: resolvedPaymentRail },
     );
 
     const externalAccountId = addResponse.data.accountId;
@@ -149,7 +171,7 @@ class ZynkService {
     // Step 3: Activate the external account
     await zynkRepository.enableExternalAccount(
       user.zynkEntityId,
-      externalAccountId
+      externalAccountId,
     );
 
     await activityLogger.logActivity({
@@ -166,10 +188,7 @@ class ZynkService {
     return decryptUserData(updatedUser);
   }
 
-  async addDepositAccount(
-    userId: string,
-    data: ZynkAddDepositAccountData
-  ) {
+  async addDepositAccount(userId: string, data: ZynkAddDepositAccountData) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError(404, "User not found");
@@ -178,14 +197,14 @@ class ZynkService {
     if (!user.zynkEntityId) {
       throw new AppError(
         400,
-        "User does not have a Zynk entity. Create entity first."
+        "User does not have a Zynk entity. Create entity first.",
       );
     }
 
     // Step 1: Add deposit account via Zynk API
     const addResponse = await zynkRepository.addDepositAccount(
       user.zynkEntityId,
-      data
+      data,
     );
 
     const depositAccountId = addResponse.data.accountId;
@@ -202,7 +221,7 @@ class ZynkService {
     // Step 3: Activate the deposit account
     await zynkRepository.enableExternalAccount(
       user.zynkEntityId,
-      depositAccountId
+      depositAccountId,
     );
 
     await activityLogger.logActivity({
@@ -221,7 +240,7 @@ class ZynkService {
 
   async generatePlaidLinkToken(
     userId: string,
-    options?: { androidPackageName?: string; redirectUri?: string }
+    options?: { androidPackageName?: string; redirectUri?: string },
   ) {
     const user = await userRepository.findById(userId);
     if (!user) {
@@ -231,7 +250,7 @@ class ZynkService {
     if (!user.zynkEntityId) {
       throw new AppError(
         400,
-        "User does not have a Zynk entity. Create entity first."
+        "User does not have a Zynk entity. Create entity first.",
       );
     }
 
