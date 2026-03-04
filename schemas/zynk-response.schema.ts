@@ -16,7 +16,7 @@ export const zynkKycResponseSchema = Joi.object({
   success: Joi.boolean().required(),
   data: Joi.object({
     message: Joi.string().required(),
-    kycLink: Joi.string().required(),
+    kycLink: Joi.string().optional(),
     tosLink: Joi.string().optional(),
     kycStatus: Joi.string()
       .valid(

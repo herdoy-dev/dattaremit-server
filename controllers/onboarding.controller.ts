@@ -78,7 +78,7 @@ class OnboardingController {
 
       res
         .status(200)
-        .json(new APIResponse(true, "KYC verification link sent to your email"));
+        .json(new APIResponse(true, kycData.message || "KYC verification initiated"));
     } catch (error) {
       next(error);
     }

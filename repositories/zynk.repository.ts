@@ -45,7 +45,7 @@ interface ZynkKycResponse {
   success: boolean;
   data: {
     message: string;
-    kycLink: string;
+    kycLink?: string;
     tosLink?: string;
     kycStatus:
       | "not_started"
