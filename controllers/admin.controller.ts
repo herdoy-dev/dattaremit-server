@@ -10,6 +10,16 @@ import {
   changeRoleSchema,
 } from "../schemas/admin.schema";
 
+const MAX_PAGE_LIMIT = 100;
+const MAX_SEARCH_LENGTH = 200;
+
+function parsePagination(query: Request["query"]) {
+  const page = Math.max(1, parseInt(query.page as string) || 1);
+  const limit = Math.min(MAX_PAGE_LIMIT, Math.max(1, parseInt(query.limit as string) || 20));
+  const search = query.search ? String(query.search).slice(0, MAX_SEARCH_LENGTH) : undefined;
+  return { page, limit, search };
+}
+
 class AdminController {
   async getDashboardStats(req: Request, res: Response, next: NextFunction) {
     try {
@@ -24,9 +34,7 @@ class AdminController {
 
   async getUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const search = req.query.search as string | undefined;
+      const { page, limit, search } = parsePagination(req.query);
       const status = req.query.status as AccountStatus | undefined;
 
       const result = await adminService.getUsers(page, limit, search, status);
@@ -52,8 +60,7 @@ class AdminController {
 
   async getActivities(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const { page, limit } = parsePagination(req.query);
       const type = req.query.type as ActivityType | undefined;
       const status = req.query.status as ActivityStatus | undefined;
 
@@ -172,9 +179,7 @@ class AdminController {
 
   async getPromoters(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const search = req.query.search as string | undefined;
+      const { page, limit, search } = parsePagination(req.query);
       const role = req.query.role as "INFLUENCER" | "PROMOTER" | undefined;
 
       const result = await adminService.getPromoters(page, limit, search, role);
@@ -273,9 +278,7 @@ class AdminController {
 
   async getReferralStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const search = req.query.search as string | undefined;
+      const { page, limit, search } = parsePagination(req.query);
 
       const data = await adminService.getReferralStats(page, limit, search);
       res

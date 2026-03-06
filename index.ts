@@ -8,6 +8,8 @@ import prismaClient from "./lib/prisma-client";
 
 import auth from "./middlewares/auth";
 import error from "./middlewares/error";
+import requestId from "./middlewares/request-id";
+import { adminRateLimit } from "./middlewares/strict-rate-limit";
 import router from "./routes";
 import adminRouter from "./routes/admin.routes";
 import webhooks from "./routes/webhook.routes";
@@ -17,6 +19,8 @@ import referralPublic from "./routes/referral-public.routes";
 dotenv.config();
 
 const app = express();
+
+app.use(requestId);
 
 app.use(
   cors({
@@ -43,8 +47,32 @@ app.use(
     hidePoweredBy: true,
     noSniff: true,
     referrerPolicy: { policy: "no-referrer" },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseSrc: ["'self'"],
+        fontSrc: ["'self'", "https:", "data:"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "https:"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
   }),
 );
+
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(self)"
+  );
+  next();
+});
 
 app.use(
   rateLimit({
@@ -82,7 +110,7 @@ app.get("/health", async (_req, res) => {
 app.use("/api", webhooks);
 app.use("/api", exchangeRate);
 app.use("/api", referralPublic);
-app.use("/api/admin", adminRouter);
+app.use("/api/admin", adminRateLimit, adminRouter);
 app.use("/api", auth, router);
 app.use(error);
 

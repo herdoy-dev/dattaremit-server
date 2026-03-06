@@ -21,6 +21,7 @@ const error = (
     stack: err instanceof Error ? err.stack : undefined,
     path: req.path,
     method: req.method,
+    requestId: req.headers["x-request-id"],
   });
   return res.status(500).send(new APIResponse(false, "Internal server error"));
 };
