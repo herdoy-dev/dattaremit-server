@@ -17,6 +17,7 @@ type WebhookVerificationResult = {
 };
 
 function verifyWebhookSignature(
+  rawBody: Buffer | undefined,
   payload: object,
   signatureHeader: string,
   secret: string
@@ -42,10 +43,14 @@ function verifyWebhookSignature(
     return { valid: false, error: "expired" };
   }
 
-  const body = JSON.stringify({ ...payload, signedAt: timestamp });
+  // Use raw body if available to avoid JSON re-serialization issues,
+  // otherwise fall back to re-serialized payload
+  const bodyForHmac = rawBody
+    ? rawBody.toString("utf8").replace(/}$/, `,"signedAt":"${timestamp}"}`)
+    : JSON.stringify({ ...payload, signedAt: timestamp });
   const expectedSignature = crypto
     .createHmac("sha256", secret)
-    .update(body)
+    .update(bodyForHmac)
     .digest("base64");
 
   try {
@@ -77,6 +82,7 @@ router.post(
       }
 
       const verification = verifyWebhookSignature(
+        (req as any).rawBody,
         req.body,
         signatureHeader,
         secret

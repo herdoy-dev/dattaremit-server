@@ -1,5 +1,7 @@
-import cors from "cors";
 import dotenv from "dotenv";
+dotenv.config();
+
+import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
@@ -16,23 +18,19 @@ import webhooks from "./routes/webhook.routes";
 import exchangeRate from "./routes/exchange-rate.routes";
 import referralPublic from "./routes/referral-public.routes";
 
-dotenv.config();
-
 const app = express();
 
 app.use(requestId);
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "https://admin.dattaremit.com",
-      "https://refer.dattaremit.com",
-      "https://app.dattaremit.com",
-    ],
-  }),
-);
+const corsOrigins: string[] = [
+  "https://admin.dattaremit.com",
+  "https://refer.dattaremit.com",
+  "https://app.dattaremit.com",
+];
+if (process.env.NODE_ENV !== "production") {
+  corsOrigins.push("http://localhost:3000", "http://localhost:3001");
+}
+app.use(cors({ origin: corsOrigins }));
 
 app.use(
   helmet({
@@ -85,7 +83,13 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({
+  limit: "100kb",
+  verify: (req: any, _res, buf) => {
+    // Store raw body for webhook HMAC verification
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 app.get("/health", async (_req, res) => {

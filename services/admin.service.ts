@@ -1,11 +1,12 @@
-import { Prisma } from "../generated/prisma/client";
-import type { AccountStatus, ActivityStatus, ActivityType, UserRole } from "../generated/prisma/client";
+import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
+import type { AccountStatus, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
 import prismaClient, { encryptUserData, decryptUserData, decryptNestedUser } from "../lib/prisma-client";
 import crypto from "crypto";
 import { createSearchHash } from "../lib/crypto";
 import { generateUserReferCode, generatePromoterReferCode } from "../lib/refer-code";
 import type { AdminCreateUserInput, AdminCreatePromoterInput, AdminUpdateUserInput } from "../schemas/admin.schema";
+import activityLogger from "../lib/activity-logger";
 
 class AdminService {
   async getDashboardStats() {
@@ -186,7 +187,7 @@ class AdminService {
     }));
   }
 
-  async createUser(data: AdminCreateUserInput) {
+  async createUser(data: AdminCreateUserInput, actingAdminId?: string) {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
     const encryptedData = encryptUserData({
       ...dataToEncrypt,
@@ -229,11 +230,21 @@ class AdminService {
         include: { addresses: true },
       });
 
+      if (actingAdminId) {
+        await activityLogger.logActivity({
+          userId: actingAdminId,
+          type: ActivityType.ADMIN_ACTION,
+          status: ActivityStatus.COMPLETE,
+          description: `Admin created user ${result.id}`,
+          metadata: { action: "createUser", targetUserId: result.id },
+        });
+      }
+
       return decryptUserData(result);
     });
   }
 
-  async createPromoter(data: AdminCreatePromoterInput) {
+  async createPromoter(data: AdminCreatePromoterInput, actingAdminId?: string) {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
     const encryptedData = encryptUserData({
       ...dataToEncrypt,
@@ -256,14 +267,18 @@ class AdminService {
       let referCode = baseCode;
       let suffix = 2;
 
-      // Check for uniqueness, append incrementing number if needed
-      while (true) {
+      // Check for uniqueness, append incrementing number if needed (max 100 attempts)
+      const MAX_CODE_ATTEMPTS = 100;
+      while (suffix <= MAX_CODE_ATTEMPTS + 1) {
         const existing = await tx.user.findUnique({
           where: { referCode },
         });
         if (!existing) break;
         referCode = `${baseCode}${suffix}`;
         suffix++;
+        if (suffix > MAX_CODE_ATTEMPTS + 1) {
+          throw new AppError(500, "Failed to generate unique promoter refer code");
+        }
       }
 
       const result = await tx.user.create({
@@ -278,6 +293,16 @@ class AdminService {
         include: { addresses: true },
       });
 
+      if (actingAdminId) {
+        await activityLogger.logActivity({
+          userId: actingAdminId,
+          type: ActivityType.ADMIN_ACTION,
+          status: ActivityStatus.COMPLETE,
+          description: `Admin created promoter ${result.id}`,
+          metadata: { action: "createPromoter", targetUserId: result.id, role },
+        });
+      }
+
       return decryptUserData(result);
     });
   }
@@ -287,13 +312,17 @@ class AdminService {
     let referCode = baseCode;
     let suffix = 2;
 
-    while (true) {
+    const MAX_CODE_ATTEMPTS = 100;
+    while (suffix <= MAX_CODE_ATTEMPTS + 1) {
       const existing = await prismaClient.user.findUnique({
         where: { referCode },
       });
       if (!existing) break;
       referCode = `${baseCode}${suffix}`;
       suffix++;
+      if (suffix > MAX_CODE_ATTEMPTS + 1) {
+        throw new AppError(500, "Failed to generate unique promoter refer code");
+      }
     }
 
     return { referCode };
@@ -358,7 +387,7 @@ class AdminService {
     };
   }
 
-  async updateUser(id: string, data: AdminUpdateUserInput) {
+  async updateUser(id: string, data: AdminUpdateUserInput, actingAdminId?: string) {
     const { referValue, ...rest } = data;
     const dataToUpdate: Record<string, unknown> = { ...rest };
     if (data.dateOfBirth) {
@@ -397,25 +426,67 @@ class AdminService {
         include: { addresses: true },
       });
 
+      if (actingAdminId) {
+        await activityLogger.logActivity({
+          userId: actingAdminId,
+          type: ActivityType.ADMIN_ACTION,
+          status: ActivityStatus.COMPLETE,
+          description: `Admin updated user ${id}`,
+          metadata: { action: "updateUser", targetUserId: id, updatedFields: Object.keys(data) },
+        });
+      }
+
       return decryptUserData(result);
     });
   }
 
-  async deleteUser(id: string) {
+  async deleteUser(id: string, actingAdminId: string) {
+    if (id === actingAdminId) {
+      throw new AppError(400, "Cannot delete your own account");
+    }
+
     const user = await prismaClient.user.findUnique({ where: { id } });
 
     if (!user) {
       throw new AppError(404, "User not found");
     }
 
+    // Prevent deleting the last admin
+    if (user.role === "ADMIN") {
+      const adminCount = await prismaClient.user.count({ where: { role: "ADMIN" } });
+      if (adminCount <= 1) {
+        throw new AppError(400, "Cannot delete the last admin account");
+      }
+    }
+
     await prismaClient.user.delete({ where: { id } });
+
+    await activityLogger.logActivity({
+      userId: actingAdminId,
+      type: ActivityType.ADMIN_ACTION,
+      status: ActivityStatus.COMPLETE,
+      description: `Admin deleted user ${id}`,
+      metadata: { action: "deleteUser", targetUserId: id },
+    });
   }
 
-  async changeUserRole(id: string, role: UserRole) {
+  async changeUserRole(id: string, role: UserRole, actingAdminId: string) {
+    if (id === actingAdminId) {
+      throw new AppError(400, "Cannot change your own role");
+    }
+
     const user = await prismaClient.user.findUnique({ where: { id } });
 
     if (!user) {
       throw new AppError(404, "User not found");
+    }
+
+    // Prevent removing the last admin
+    if (user.role === "ADMIN" && role !== "ADMIN") {
+      const adminCount = await prismaClient.user.count({ where: { role: "ADMIN" } });
+      if (adminCount <= 1) {
+        throw new AppError(400, "Cannot demote the last admin");
+      }
     }
 
     const result = await prismaClient.user.update({
@@ -423,10 +494,18 @@ class AdminService {
       data: { role },
     });
 
+    await activityLogger.logActivity({
+      userId: actingAdminId,
+      type: ActivityType.ADMIN_ACTION,
+      status: ActivityStatus.COMPLETE,
+      description: `Admin changed role of user ${id} to ${role}`,
+      metadata: { action: "changeUserRole", targetUserId: id, previousRole: user.role, newRole: role },
+    });
+
     return decryptUserData(result);
   }
 
-  async toggleAchPush(id: string, enabled: boolean) {
+  async toggleAchPush(id: string, enabled: boolean, actingAdminId?: string) {
     const user = await prismaClient.user.findUnique({ where: { id } });
 
     if (!user) {
@@ -437,6 +516,16 @@ class AdminService {
       where: { id },
       data: { achPushEnabled: enabled },
     });
+
+    if (actingAdminId) {
+      await activityLogger.logActivity({
+        userId: actingAdminId,
+        type: ActivityType.ADMIN_ACTION,
+        status: ActivityStatus.COMPLETE,
+        description: `Admin ${enabled ? "enabled" : "disabled"} ACH push for user ${id}`,
+        metadata: { action: "toggleAchPush", targetUserId: id, enabled },
+      });
+    }
 
     return decryptUserData(result);
   }

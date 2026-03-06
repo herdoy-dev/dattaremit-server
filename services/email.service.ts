@@ -27,7 +27,8 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
-    logger.error(`Failed to send email to ${options.to}:`, error);
+    const masked = options.to.replace(/^(.{2}).*(@.*)$/, "$1***$2");
+    logger.error(`Failed to send email to ${masked}`, { error });
     return false;
   }
 };
@@ -47,6 +48,10 @@ export const sendKycEmail = async (
   userName?: string
 ): Promise<boolean> => {
   const name = escapeHtml(userName || "there");
+  if (!kycLink.startsWith("https://")) {
+    logger.error("KYC link rejected: invalid protocol", { link: kycLink.substring(0, 30) });
+    return false;
+  }
   const safeLink = encodeURI(kycLink);
   return sendEmail({
     to,

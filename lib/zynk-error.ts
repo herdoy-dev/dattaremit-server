@@ -22,17 +22,19 @@ export function handleZynkError(error: unknown, defaultMessage: string): never {
   if (error instanceof AxiosError && error.response) {
     const zynkError = error.response.data as ZynkErrorBody;
 
+    const SAFE_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429];
+
     if (zynkError?.error) {
-      const errorMessage = zynkError.error.details || zynkError.error.message;
-      throw new AppError(zynkError.error.code, errorMessage);
+      const safeStatus = SAFE_STATUS_CODES.includes(zynkError.error.code)
+        ? zynkError.error.code : 502;
+      throw new AppError(safeStatus, "An error occurred processing your request");
     }
 
     // Handle flat error format: { status, error_message, message_code }
     if (zynkError?.error_message) {
-      throw new AppError(
-        zynkError.status || error.response.status,
-        zynkError.error_message
-      );
+      const safeStatus = SAFE_STATUS_CODES.includes(zynkError.status ?? 0)
+        ? zynkError.status! : 502;
+      throw new AppError(safeStatus, "An error occurred processing your request");
     }
 
     throw new AppError(error.response.status, defaultMessage);

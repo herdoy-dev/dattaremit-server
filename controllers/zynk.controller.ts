@@ -164,66 +164,71 @@ class ZynkController {
     res: Response,
     next: NextFunction
   ) {
-    try {
-      const dbUser = req.user;
-      const { error, value } = addExternalAccountSchema.validate(req.body, {
-        abortEarly: false,
-        stripUnknown: true,
-      });
+    return withIdempotency(
+      req,
+      res,
+      next,
+      { operation: "zynk:addExternalAccount" },
+      async (): Promise<IdempotentHandlerResult<unknown>> => {
+        const { error, value } = addExternalAccountSchema.validate(req.body, {
+          abortEarly: false,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        throw new AppError(
-          400,
-          error.details.map((d) => d.message).join(", ")
-        );
-      }
+        if (error) {
+          throw new AppError(
+            400,
+            error.details.map((d) => d.message).join(", ")
+          );
+        }
 
-      const user = await zynkService.addExternalAccount(dbUser.id, value);
-      res
-        .status(201)
-        .json(
-          new APIResponse(
+        const user = await zynkService.addExternalAccount(req.user.id, value);
+        return {
+          status: 201,
+          response: new APIResponse(
             true,
             "External account added and enabled successfully",
             user
-          )
-        );
-    } catch (error) {
-      next(error);
-    }
+          ),
+        };
+      }
+    );
   }
+
   async addDepositAccount(
     req: AuthRequest,
     res: Response,
     next: NextFunction
   ) {
-    try {
-      const dbUser = req.user;
-      const { error, value } = addDepositAccountSchema.validate(req.body, {
-        abortEarly: false,
-        stripUnknown: true,
-      });
+    return withIdempotency(
+      req,
+      res,
+      next,
+      { operation: "zynk:addDepositAccount" },
+      async (): Promise<IdempotentHandlerResult<unknown>> => {
+        const { error, value } = addDepositAccountSchema.validate(req.body, {
+          abortEarly: false,
+          stripUnknown: true,
+        });
 
-      if (error) {
-        throw new AppError(
-          400,
-          error.details.map((d) => d.message).join(", ")
-        );
-      }
+        if (error) {
+          throw new AppError(
+            400,
+            error.details.map((d) => d.message).join(", ")
+          );
+        }
 
-      const user = await zynkService.addDepositAccount(dbUser.id, value);
-      res
-        .status(201)
-        .json(
-          new APIResponse(
+        const user = await zynkService.addDepositAccount(req.user.id, value);
+        return {
+          status: 201,
+          response: new APIResponse(
             true,
             "Deposit account added and enabled successfully",
             user
-          )
-        );
-    } catch (error) {
-      next(error);
-    }
+          ),
+        };
+      }
+    );
   }
 }
 

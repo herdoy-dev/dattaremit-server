@@ -119,6 +119,9 @@ enum ActivityType {
   ACCOUNT_ACTIVATED
   ACCOUNT_DEACTIVATED
 
+  // Admin activities
+  ADMIN_ACTION
+
   @@map("activity_type")
 }
 

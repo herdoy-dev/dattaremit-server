@@ -51,7 +51,7 @@ class ActivityController {
       const activity = await activityService.getById(value.id);
 
       if (activity.userId !== dbUser.id) {
-        throw new AppError(403, "You are not authorized to view this activity");
+        throw new AppError(404, "Activity not found");
       }
 
       res

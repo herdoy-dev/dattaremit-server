@@ -190,18 +190,6 @@ export const adminUpdateUserSchema = Joi.object({
     "any.only": "Nationality must be US or IN",
   }),
 
-  role: Joi.string()
-    .valid(...Object.values(UserRole))
-    .messages({
-      "any.only": `Role must be one of ${Object.values(UserRole).join(", ")}`,
-    }),
-
-  accountStatus: Joi.string()
-    .valid(...Object.values(AccountStatus))
-    .messages({
-      "any.only": "Account status must be a valid status",
-    }),
-
   referValue: Joi.number().integer().min(1).messages({
     "number.base": "Refer value must be a number",
     "number.integer": "Refer value must be an integer",
@@ -257,8 +245,6 @@ export type AdminUpdateUserInput = {
   phoneNumber?: string;
   dateOfBirth?: Date;
   nationality?: string;
-  role?: "ADMIN" | "USER" | "INFLUENCER" | "PROMOTER";
-  accountStatus?: "INITIAL" | "ACTIVE" | "PENDING" | "REJECTED";
   referValue?: number;
 };
 

@@ -2,6 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
 import { createSearchHash, decrypt, encrypt, isEncrypted } from "./crypto";
+import logger from "./logger";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
@@ -34,8 +35,8 @@ const decryptField = (
 
   try {
     data[fieldName] = decrypt(value);
-  } catch (error) {
-    console.error(`Failed to decrypt ${fieldName}:`, error);
+  } catch {
+    logger.error("Field decryption failed");
   }
 };
 

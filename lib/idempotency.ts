@@ -79,6 +79,7 @@ async function checkOrCreate<T>(
   const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_MS);
 
   try {
+    // Use upsert-style approach: try to create first, handle conflict atomically
     const existing = await prismaClient.idempotencyKey.findUnique({
       where: {
         userId_operation_key: {
@@ -107,7 +108,6 @@ async function checkOrCreate<T>(
           "Idempotency key has already been used with a different request payload"
         );
       } else if (existing.status === "COMPLETED") {
-        // Cast through unknown since Prisma's JsonValue doesn't overlap with APIResponse
         const cachedBody = existing.responseBody as unknown as APIResponse<T>;
         return {
           isNew: false,
@@ -145,8 +145,9 @@ async function checkOrCreate<T>(
       throw error;
     }
 
-    // Handle unique constraint violation (race condition)
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
+    // Handle unique constraint violation using Prisma's typed error
+    const { PrismaClientKnownRequestError } = await import("../generated/prisma/internal/prismaNamespace");
+    if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
       throw new AppError(
         409,
         "A request with this idempotency key is already in progress. Please retry later."

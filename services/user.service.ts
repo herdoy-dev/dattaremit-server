@@ -129,39 +129,23 @@ class UserService {
   async getReferralTrackerStats(referCode: string) {
     const referrer = await prismaClient.user.findUnique({
       where: { referCode },
-      select: { firstName: true, referCode: true, referValue: true },
+      select: { referCode: true },
     });
 
     if (!referrer) {
       throw new AppError(404, "Referral code not found");
     }
 
-    const statusGroups = await prismaClient.user.groupBy({
-      by: ["accountStatus"],
+    const totalReferrals = await prismaClient.user.count({
       where: { referredByCode: referCode },
-      _count: { accountStatus: true },
     });
-
-    const byStatus: Record<string, number> = {};
-    let totalReferrals = 0;
-
-    for (const group of statusGroups) {
-      byStatus[group.accountStatus] = group._count.accountStatus;
-      totalReferrals += group._count.accountStatus;
-    }
-
-    const totalValue = totalReferrals * referrer.referValue;
 
     return {
       referrer: {
-        firstName: referrer.firstName,
         referCode: referrer.referCode,
-        referValue: referrer.referValue,
       },
       stats: {
         totalReferrals,
-        totalValue,
-        byStatus,
       },
     };
   }

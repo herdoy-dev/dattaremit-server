@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import type { AuthRequest } from "../middlewares/auth";
 import type { AccountStatus, ActivityStatus, ActivityType, UserRole } from "../generated/prisma/client";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
@@ -121,6 +122,7 @@ class AdminController {
     try {
       const { error, value } = adminCreateUserSchema.validate(req.body, {
         abortEarly: false,
+        stripUnknown: true,
       });
       if (error) {
         throw new AppError(
@@ -129,7 +131,8 @@ class AdminController {
         );
       }
 
-      const user = await adminService.createUser(value);
+      const actingAdminId = (req as AuthRequest).user.id;
+      const user = await adminService.createUser(value, actingAdminId);
       res
         .status(201)
         .json(new APIResponse(true, "User created successfully", user));
@@ -142,6 +145,7 @@ class AdminController {
     try {
       const { error, value } = adminCreatePromoterSchema.validate(req.body, {
         abortEarly: false,
+        stripUnknown: true,
       });
       if (error) {
         throw new AppError(
@@ -150,7 +154,8 @@ class AdminController {
         );
       }
 
-      const user = await adminService.createPromoter(value);
+      const actingAdminId = (req as AuthRequest).user.id;
+      const user = await adminService.createPromoter(value, actingAdminId);
       res
         .status(201)
         .json(new APIResponse(true, "Promoter created successfully", user));
@@ -207,6 +212,7 @@ class AdminController {
       const id = req.params.id as string;
       const { error, value } = adminUpdateUserSchema.validate(req.body, {
         abortEarly: false,
+        stripUnknown: true,
       });
       if (error) {
         throw new AppError(
@@ -215,7 +221,8 @@ class AdminController {
         );
       }
 
-      const user = await adminService.updateUser(id, value);
+      const actingAdminId = (req as AuthRequest).user.id;
+      const user = await adminService.updateUser(id, value, actingAdminId);
       res
         .status(200)
         .json(new APIResponse(true, "User updated successfully", user));
@@ -227,7 +234,8 @@ class AdminController {
   async deleteUser(req: Request, res: Response, next: NextFunction) {
     try {
       const id = req.params.id as string;
-      await adminService.deleteUser(id);
+      const actingAdminId = (req as AuthRequest).user.id;
+      await adminService.deleteUser(id, actingAdminId);
       res
         .status(200)
         .json(new APIResponse(true, "User deleted successfully"));
@@ -249,7 +257,8 @@ class AdminController {
         );
       }
 
-      const user = await adminService.changeUserRole(id, value.role as UserRole);
+      const actingAdminId = (req as AuthRequest).user.id;
+      const user = await adminService.changeUserRole(id, value.role as UserRole, actingAdminId);
       res
         .status(200)
         .json(new APIResponse(true, "User role updated successfully", user));
@@ -267,7 +276,8 @@ class AdminController {
         throw new AppError(400, "enabled must be a boolean");
       }
 
-      const user = await adminService.toggleAchPush(id, enabled);
+      const actingAdminId = (req as AuthRequest).user.id;
+      const user = await adminService.toggleAchPush(id, enabled, actingAdminId);
       res
         .status(200)
         .json(new APIResponse(true, "ACH push setting updated successfully", user));

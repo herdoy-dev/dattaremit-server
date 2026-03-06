@@ -7,6 +7,7 @@ interface ExchangeRateCache {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
+const MAX_STALENESS_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 let cache: ExchangeRateCache | null = null;
 
@@ -41,8 +42,12 @@ class ExchangeRateService {
     } catch (error) {
       logger.error("Failed to fetch exchange rate", { error });
 
-      // Return stale cache if available
+      // Return stale cache if available and not too old
       if (cache) {
+        const cacheAge = now - (cache.expiresAt - CACHE_TTL_MS);
+        if (cacheAge > MAX_STALENESS_MS) {
+          throw new Error("Exchange rate data is too stale to serve");
+        }
         return { rate: cache.rate, updatedAt: cache.updatedAt, stale: true };
       }
 
