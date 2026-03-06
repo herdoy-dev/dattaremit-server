@@ -15,9 +15,9 @@ const plaidTokenLimiter = rateLimit({
 
 const router = express.Router();
 
-router.post("/entities", isApproved, zynkController.createEntity as RequestHandler);
-router.post("/kyc", isApproved, zynkController.startKyc as RequestHandler);
-router.get("/kyc/status", isApproved, zynkController.getKycStatus as RequestHandler);
+router.post("/entities", zynkController.createEntity as RequestHandler);
+router.post("/kyc", zynkController.startKyc as RequestHandler);
+router.get("/kyc/status", zynkController.getKycStatus as RequestHandler);
 
 router.post(
   "/plaid-link-token",

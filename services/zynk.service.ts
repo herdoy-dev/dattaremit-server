@@ -14,44 +14,36 @@ import zynkRepository from "../repositories/zynk.repository";
 class ZynkService {
   async createEntity(userId: string) {
     const updatedUser = await prismaClient.$transaction(async (tx) => {
-      // Lock the user row to prevent concurrent entity creation
-      const [lockedUser] = await tx.$queryRaw<any[]>`
-        SELECT * FROM users WHERE id = ${userId}::uuid FOR UPDATE
-      `;
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId },
+        include: { addresses: true },
+      });
 
-      if (!lockedUser) {
+      if (!currentUser) {
         throw new AppError(404, "User not found");
       }
 
       // If entity already exists, return the user as-is (idempotent)
-      if (lockedUser.zynkEntityId) {
-        const fullUser = await tx.user.findUnique({
-          where: { id: userId },
-          include: { addresses: true },
-        });
-        return fullUser!;
+      if (currentUser.zynkEntityId) {
+        return currentUser;
       }
 
-      const addresses = await tx.address.findMany({ where: { userId } });
-      if (!addresses || addresses.length === 0) {
+      if (!currentUser.addresses || currentUser.addresses.length === 0) {
         throw new AppError(
           400,
           "At least one address is required to create entity",
         );
       }
 
-      const user = await tx.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new AppError(404, "User not found");
-      }
+      const addresses = currentUser.addresses;
 
       const entityData: ZynkEntityData = {
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName ? user.lastName : " ",
-        phoneNumberPrefix: user.phoneNumberPrefix.replace("+", ""),
-        phoneNumber: user.phoneNumber,
-        dateOfBirth: user.dateOfBirth,
+        email: currentUser.email,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName ? currentUser.lastName : " ",
+        phoneNumberPrefix: currentUser.phoneNumberPrefix.replace("+", ""),
+        phoneNumber: currentUser.phoneNumber,
+        dateOfBirth: currentUser.dateOfBirth,
         nationality: addresses[0]?.country as string,
         permanentAddress: {
           addressLine1: addresses[0]?.addressLine1 as string,
@@ -64,7 +56,7 @@ class ZynkService {
         },
       };
 
-      // Call external API AFTER acquiring the lock
+      // Call external API inside the transaction
       const response = await zynkRepository.createEntity(entityData);
 
       return tx.user.update({
@@ -75,6 +67,8 @@ class ZynkService {
         },
         include: { addresses: true },
       });
+    }, {
+      isolationLevel: "Serializable",
     });
 
     return decryptUserData(updatedUser);
@@ -136,15 +130,6 @@ class ZynkService {
 
   async addExternalAccount(userId: string, data: ZynkAddExternalAccountData) {
     const updatedUser = await prismaClient.$transaction(async (tx) => {
-      // Lock the user row to prevent concurrent account additions
-      const [lockedUser] = await tx.$queryRaw<any[]>`
-        SELECT * FROM users WHERE id = ${userId}::uuid FOR UPDATE
-      `;
-
-      if (!lockedUser) {
-        throw new AppError(404, "User not found");
-      }
-
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw new AppError(404, "User not found");
@@ -163,7 +148,7 @@ class ZynkService {
           ? "ach_push"
           : "ach_pull";
 
-      // Call external API AFTER acquiring the lock
+      // Call external API inside the serializable transaction
       const addResponse = await zynkRepository.addExternalAccount(
         user.zynkEntityId,
         { ...data, paymentRail: resolvedPaymentRail },
@@ -195,6 +180,8 @@ class ZynkService {
       });
 
       return updated;
+    }, {
+      isolationLevel: "Serializable",
     });
 
     return decryptUserData(updatedUser);
@@ -202,15 +189,6 @@ class ZynkService {
 
   async addDepositAccount(userId: string, data: ZynkAddDepositAccountData) {
     const updatedUser = await prismaClient.$transaction(async (tx) => {
-      // Lock the user row to prevent concurrent account additions
-      const [lockedUser] = await tx.$queryRaw<any[]>`
-        SELECT * FROM users WHERE id = ${userId}::uuid FOR UPDATE
-      `;
-
-      if (!lockedUser) {
-        throw new AppError(404, "User not found");
-      }
-
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) {
         throw new AppError(404, "User not found");
@@ -223,7 +201,7 @@ class ZynkService {
         );
       }
 
-      // Call external API AFTER acquiring the lock
+      // Call external API inside the serializable transaction
       const addResponse = await zynkRepository.addDepositAccount(
         user.zynkEntityId,
         data,
@@ -255,6 +233,8 @@ class ZynkService {
       });
 
       return updated;
+    }, {
+      isolationLevel: "Serializable",
     });
 
     return decryptUserData(updatedUser);
