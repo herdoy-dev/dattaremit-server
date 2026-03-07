@@ -130,7 +130,15 @@ export function createTestApp() {
   const app = express();
 
   app.use(requestId);
-  app.use(cors());
+  app.use(cors({
+    origin: [
+      "https://admin.dattaremit.com",
+      "https://refer.dattaremit.com",
+      "https://app.dattaremit.com",
+      "http://localhost:3000",
+      "http://localhost:3001",
+    ],
+  }));
   app.use(helmet());
 
   app.use(express.json({
