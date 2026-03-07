@@ -1,47 +1,20 @@
+import { mockAddressService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
-import { mockUser, mockAddress, validCreateAddressBody } from "./helpers/mock-data";
+import { AUTH_TOKEN } from "./helpers/auth";
+import { mockAddress, validCreateAddressBody } from "./helpers/mock-data";
+import { setupUserAuth } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-jest.mock("../services/address.service", () => ({
-  __esModule: true,
-  default: {
-    getAllByUserId: jest.fn(),
-    getById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-const addressService = require("../services/address.service").default;
-
 describe("Address Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
-    // dbUser middleware needs this
-    userService.getByClerkUserId.mockResolvedValue(mockUser);
+    setupUserAuth();
   });
 
   describe("GET /api/addresses", () => {
     it("should return all addresses for authenticated user", async () => {
-      addressService.getAllByUserId.mockResolvedValueOnce([mockAddress]);
+      mockAddressService.getAllByUserId.mockResolvedValueOnce([mockAddress]);
 
       const res = await request(app)
         .get("/api/addresses")
@@ -53,7 +26,7 @@ describe("Address Endpoints", () => {
     });
 
     it("should return empty array when no addresses", async () => {
-      addressService.getAllByUserId.mockResolvedValueOnce([]);
+      mockAddressService.getAllByUserId.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/addresses")
@@ -71,7 +44,7 @@ describe("Address Endpoints", () => {
 
   describe("GET /api/addresses/:id", () => {
     it("should return address by id", async () => {
-      addressService.getById.mockResolvedValueOnce(mockAddress);
+      mockAddressService.getById.mockResolvedValueOnce(mockAddress);
 
       const res = await request(app)
         .get(`/api/addresses/${mockAddress.id}`)
@@ -83,7 +56,7 @@ describe("Address Endpoints", () => {
     });
 
     it("should return 403 when address belongs to another user", async () => {
-      addressService.getById.mockResolvedValueOnce({
+      mockAddressService.getById.mockResolvedValueOnce({
         ...mockAddress,
         userId: "other-user-id",
       });
@@ -99,7 +72,7 @@ describe("Address Endpoints", () => {
 
   describe("POST /api/addresses", () => {
     it("should create a new address", async () => {
-      addressService.create.mockResolvedValueOnce(mockAddress);
+      mockAddressService.create.mockResolvedValueOnce(mockAddress);
 
       const res = await request(app)
         .post("/api/addresses")
@@ -144,7 +117,7 @@ describe("Address Endpoints", () => {
 
   describe("PUT /api/addresses/:id", () => {
     it("should update an address", async () => {
-      addressService.update.mockResolvedValueOnce({
+      mockAddressService.update.mockResolvedValueOnce({
         ...mockAddress,
         city: "Brooklyn",
       });
@@ -172,7 +145,7 @@ describe("Address Endpoints", () => {
 
   describe("DELETE /api/addresses/:id", () => {
     it("should delete an address", async () => {
-      addressService.delete.mockResolvedValueOnce(undefined);
+      mockAddressService.delete.mockResolvedValueOnce(undefined);
 
       const res = await request(app)
         .delete(`/api/addresses/${mockAddress.id}`)

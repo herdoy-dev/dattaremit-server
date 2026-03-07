@@ -1,34 +1,21 @@
+import { mockUserService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
+import { AUTH_TOKEN } from "./helpers/auth";
 import { mockUser, validCreateUserBody } from "./helpers/mock-data";
+import { setupAuthOnly } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-
 describe("User Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
+    setupAuthOnly();
   });
 
   describe("POST /api/users", () => {
     it("should create a new user", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(null);
-      userService.create.mockResolvedValueOnce(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(null);
+      mockUserService.create.mockResolvedValueOnce(mockUser);
 
       const res = await request(app)
         .post("/api/users")
@@ -41,8 +28,8 @@ describe("User Endpoints", () => {
     });
 
     it("should update existing user instead of creating duplicate", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
-      userService.update.mockResolvedValueOnce({ ...mockUser, firstName: "Updated" });
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.update.mockResolvedValueOnce({ ...mockUser, firstName: "Updated" });
 
       const res = await request(app)
         .post("/api/users")
@@ -125,9 +112,8 @@ describe("User Endpoints", () => {
 
   describe("PUT /api/users/update-user", () => {
     it("should update user profile", async () => {
-      // dbUser middleware calls getByClerkUserId
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
-      userService.update.mockResolvedValueOnce({ ...mockUser, firstName: "Jane" });
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.update.mockResolvedValueOnce({ ...mockUser, firstName: "Jane" });
 
       const res = await request(app)
         .put("/api/users/update-user")
@@ -140,7 +126,7 @@ describe("User Endpoints", () => {
     });
 
     it("should return 400 with empty update body", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
       const res = await request(app)
         .put("/api/users/update-user")
         .set("x-auth-token", AUTH_TOKEN)
@@ -151,7 +137,7 @@ describe("User Endpoints", () => {
     });
 
     it("should return 400 with invalid email in update", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
       const res = await request(app)
         .put("/api/users/update-user")
         .set("x-auth-token", AUTH_TOKEN)

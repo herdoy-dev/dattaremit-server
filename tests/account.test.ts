@@ -1,27 +1,10 @@
+import { mockUserRepository, mockAddressRepository } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
 import { mockAuthAsUser, mockAuthFailure, AUTH_TOKEN } from "./helpers/auth";
 import { mockUser, mockAddress } from "./helpers/mock-data";
 
 const app = createTestApp();
-
-jest.mock("../repositories/user.repository", () => ({
-  __esModule: true,
-  default: {
-    findByClerkUserId: jest.fn(),
-    findById: jest.fn(),
-  },
-}));
-
-jest.mock("../repositories/address.repository", () => ({
-  __esModule: true,
-  default: {
-    findAllByUserId: jest.fn(),
-  },
-}));
-
-const userRepository = require("../repositories/user.repository").default;
-const addressRepository = require("../repositories/address.repository").default;
 
 describe("GET /api/account", () => {
   beforeEach(() => {
@@ -47,8 +30,8 @@ describe("GET /api/account", () => {
 
   it("should return account data for authenticated user", async () => {
     mockAuthAsUser();
-    userRepository.findByClerkUserId.mockResolvedValueOnce(mockUser);
-    addressRepository.findAllByUserId.mockResolvedValueOnce([mockAddress]);
+    mockUserRepository.findByClerkUserId.mockResolvedValueOnce(mockUser);
+    mockAddressRepository.findAllByUserId.mockResolvedValueOnce([mockAddress]);
 
     const res = await request(app)
       .get("/api/account")
@@ -64,8 +47,8 @@ describe("GET /api/account", () => {
 
   it("should return null user when user doesn't exist yet", async () => {
     mockAuthAsUser();
-    userRepository.findByClerkUserId.mockResolvedValueOnce(null);
-    addressRepository.findAllByUserId.mockResolvedValueOnce([]);
+    mockUserRepository.findByClerkUserId.mockResolvedValueOnce(null);
+    mockAddressRepository.findAllByUserId.mockResolvedValueOnce([]);
 
     const res = await request(app)
       .get("/api/account")

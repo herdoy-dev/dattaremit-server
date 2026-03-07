@@ -1,0 +1,104 @@
+// Centralized jest.mock() calls for services and repositories.
+// jest.mock() is hoisted by Jest, so importing this file applies all mocks.
+// Paths are relative to tests/helpers/ (2 levels deep from project root).
+
+jest.mock("../../services/user.service", () => ({
+  __esModule: true,
+  default: {
+    getByClerkUserId: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    validateReferCode: jest.fn(),
+    requestReferCode: jest.fn(),
+    getReferralTrackerStats: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/address.service", () => ({
+  __esModule: true,
+  default: {
+    getAllByUserId: jest.fn(),
+    getById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/activity.service", () => ({
+  __esModule: true,
+  default: {
+    getActivities: jest.fn(),
+    getById: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/admin.service", () => ({
+  __esModule: true,
+  default: {
+    getDashboardStats: jest.fn(),
+    getUsers: jest.fn(),
+    getUserById: jest.fn(),
+    createUser: jest.fn(),
+    updateUser: jest.fn(),
+    deleteUser: jest.fn(),
+    changeUserRole: jest.fn(),
+    toggleAchPush: jest.fn(),
+    getActivities: jest.fn(),
+    getRegistrationChart: jest.fn(),
+    getActivityTypeChart: jest.fn(),
+    getAccountStatusChart: jest.fn(),
+    getKycActivityChart: jest.fn(),
+    createPromoter: jest.fn(),
+    previewReferCode: jest.fn(),
+    getPromoters: jest.fn(),
+    getMarketingStats: jest.fn(),
+    getReferralStats: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/zynk.service", () => ({
+  __esModule: true,
+  default: {
+    createEntity: jest.fn(),
+    startKyc: jest.fn(),
+    getKycStatus: jest.fn(),
+    generatePlaidLinkToken: jest.fn(),
+    addExternalAccount: jest.fn(),
+    addDepositAccount: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/exchange-rate.service", () => ({
+  __esModule: true,
+  default: {
+    getRate: jest.fn(),
+  },
+}));
+
+jest.mock("../../repositories/user.repository", () => ({
+  __esModule: true,
+  default: {
+    findById: jest.fn(),
+    findByClerkUserId: jest.fn(),
+    findByZynkEntityId: jest.fn(),
+    update: jest.fn(),
+  },
+}));
+
+jest.mock("../../repositories/address.repository", () => ({
+  __esModule: true,
+  default: {
+    findAllByUserId: jest.fn(),
+  },
+}));
+
+// Typed mock references
+export const mockUserService = require("../../services/user.service").default;
+export const mockAddressService = require("../../services/address.service").default;
+export const mockActivityService = require("../../services/activity.service").default;
+export const mockAdminService = require("../../services/admin.service").default;
+export const mockZynkService = require("../../services/zynk.service").default;
+export const mockExchangeRateService = require("../../services/exchange-rate.service").default;
+export const mockUserRepository = require("../../repositories/user.repository").default;
+export const mockAddressRepository = require("../../repositories/address.repository").default;

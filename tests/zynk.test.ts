@@ -1,47 +1,22 @@
+import { mockUserService, mockZynkService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
+import { AUTH_TOKEN } from "./helpers/auth";
 import { mockUser, mockActiveUser } from "./helpers/mock-data";
+import { setupAuthOnly, mockIdempotencyKeyFlow } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-jest.mock("../services/zynk.service", () => ({
-  __esModule: true,
-  default: {
-    createEntity: jest.fn(),
-    startKyc: jest.fn(),
-    getKycStatus: jest.fn(),
-    generatePlaidLinkToken: jest.fn(),
-    addExternalAccount: jest.fn(),
-    addDepositAccount: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-const zynkService = require("../services/zynk.service").default;
 const prismaClient = require("../lib/prisma-client").default;
 
 describe("Zynk Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
+    setupAuthOnly();
   });
 
   describe("POST /api/zynk/entities", () => {
     it("should return 400 without idempotency key", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post("/api/zynk/entities")
@@ -52,7 +27,7 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should return 400 with short idempotency key", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post("/api/zynk/entities")
@@ -64,16 +39,9 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should create entity with valid idempotency key", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
-      prismaClient.idempotencyKey.findUnique.mockResolvedValueOnce(null);
-      prismaClient.idempotencyKey.deleteMany.mockResolvedValueOnce({ count: 0 });
-      prismaClient.idempotencyKey.create.mockResolvedValueOnce({
-        id: "idem-1",
-        key: "test-idempotency-key-12345",
-        status: "PENDING",
-      });
-      prismaClient.idempotencyKey.update.mockResolvedValueOnce({});
-      zynkService.createEntity.mockResolvedValueOnce({ zynkEntityId: "zynk_123" });
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockIdempotencyKeyFlow(prismaClient);
+      mockZynkService.createEntity.mockResolvedValueOnce({ zynkEntityId: "zynk_123" });
 
       const res = await request(app)
         .post("/api/zynk/entities")
@@ -92,8 +60,8 @@ describe("Zynk Endpoints", () => {
 
   describe("POST /api/zynk/kyc", () => {
     it("should start KYC", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
-      zynkService.startKyc.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockZynkService.startKyc.mockResolvedValueOnce({
         kycLink: "https://kyc.zynk.com/verify",
       });
 
@@ -109,8 +77,8 @@ describe("Zynk Endpoints", () => {
 
   describe("GET /api/zynk/kyc/status", () => {
     it("should return KYC status", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
-      zynkService.getKycStatus.mockResolvedValueOnce({ status: "pending" });
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockZynkService.getKycStatus.mockResolvedValueOnce({ status: "pending" });
 
       const res = await request(app)
         .get("/api/zynk/kyc/status")
@@ -124,7 +92,7 @@ describe("Zynk Endpoints", () => {
 
   describe("POST /api/zynk/plaid-link-token", () => {
     it("should return 403 when account not active", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post("/api/zynk/plaid-link-token")
@@ -135,8 +103,8 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should generate plaid link token for active user", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      zynkService.generatePlaidLinkToken.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockZynkService.generatePlaidLinkToken.mockResolvedValueOnce({
         linkToken: "link-sandbox-xxx",
       });
 
@@ -150,7 +118,7 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should reject invalid android_package_name", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
 
       const res = await request(app)
         .post("/api/zynk/plaid-link-token")
@@ -162,7 +130,7 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should reject invalid redirect_uri", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
 
       const res = await request(app)
         .post("/api/zynk/plaid-link-token")
@@ -174,8 +142,8 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should accept valid redirect_uri", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      zynkService.generatePlaidLinkToken.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockZynkService.generatePlaidLinkToken.mockResolvedValueOnce({
         linkToken: "link-sandbox-xxx",
       });
 
@@ -191,7 +159,7 @@ describe("Zynk Endpoints", () => {
 
   describe("POST /api/zynk/external-account", () => {
     it("should return 403 when account not active", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post("/api/zynk/external-account")
@@ -208,14 +176,8 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should return 400 with missing fields", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      prismaClient.idempotencyKey.findUnique.mockResolvedValueOnce(null);
-      prismaClient.idempotencyKey.deleteMany.mockResolvedValueOnce({ count: 0 });
-      prismaClient.idempotencyKey.create.mockResolvedValueOnce({
-        id: "idem-2",
-        status: "PENDING",
-      });
-      prismaClient.idempotencyKey.update.mockResolvedValueOnce({});
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockIdempotencyKeyFlow(prismaClient, "idem-2");
 
       const res = await request(app)
         .post("/api/zynk/external-account")
@@ -230,7 +192,7 @@ describe("Zynk Endpoints", () => {
 
   describe("POST /api/zynk/deposit-account", () => {
     it("should return 403 when account not active", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post("/api/zynk/deposit-account")
@@ -249,14 +211,8 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should return 400 with invalid IFSC routing number", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      prismaClient.idempotencyKey.findUnique.mockResolvedValueOnce(null);
-      prismaClient.idempotencyKey.deleteMany.mockResolvedValueOnce({ count: 0 });
-      prismaClient.idempotencyKey.create.mockResolvedValueOnce({
-        id: "idem-3",
-        status: "PENDING",
-      });
-      prismaClient.idempotencyKey.update.mockResolvedValueOnce({});
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockIdempotencyKeyFlow(prismaClient, "idem-3");
 
       const res = await request(app)
         .post("/api/zynk/deposit-account")
@@ -275,14 +231,8 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should return 400 with invalid account type", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      prismaClient.idempotencyKey.findUnique.mockResolvedValueOnce(null);
-      prismaClient.idempotencyKey.deleteMany.mockResolvedValueOnce({ count: 0 });
-      prismaClient.idempotencyKey.create.mockResolvedValueOnce({
-        id: "idem-4",
-        status: "PENDING",
-      });
-      prismaClient.idempotencyKey.update.mockResolvedValueOnce({});
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockIdempotencyKeyFlow(prismaClient, "idem-4");
 
       const res = await request(app)
         .post("/api/zynk/deposit-account")
@@ -301,15 +251,9 @@ describe("Zynk Endpoints", () => {
     });
 
     it("should add deposit account for active user", async () => {
-      userService.getByClerkUserId.mockResolvedValue(mockActiveUser);
-      prismaClient.idempotencyKey.findUnique.mockResolvedValueOnce(null);
-      prismaClient.idempotencyKey.deleteMany.mockResolvedValueOnce({ count: 0 });
-      prismaClient.idempotencyKey.create.mockResolvedValueOnce({
-        id: "idem-5",
-        status: "PENDING",
-      });
-      prismaClient.idempotencyKey.update.mockResolvedValueOnce({});
-      zynkService.addDepositAccount.mockResolvedValueOnce({ success: true });
+      mockUserService.getByClerkUserId.mockResolvedValue(mockActiveUser);
+      mockIdempotencyKeyFlow(prismaClient, "idem-5");
+      mockZynkService.addDepositAccount.mockResolvedValueOnce({ success: true });
 
       const res = await request(app)
         .post("/api/zynk/deposit-account")

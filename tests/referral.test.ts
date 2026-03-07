@@ -1,33 +1,20 @@
+import { mockUserService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
+import { AUTH_TOKEN } from "./helpers/auth";
 import { mockUser } from "./helpers/mock-data";
+import { setupAuthOnly } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-
 describe("Referral Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
+    setupAuthOnly();
   });
 
   describe("POST /api/referral/validate", () => {
     it("should validate a valid referral code", async () => {
-      userService.validateReferCode.mockResolvedValueOnce({ valid: true, referrerName: "John" });
+      mockUserService.validateReferCode.mockResolvedValueOnce({ valid: true, referrerName: "John" });
 
       const res = await request(app)
         .post("/api/referral/validate")
@@ -62,9 +49,8 @@ describe("Referral Endpoints", () => {
 
   describe("POST /api/referral/request-code", () => {
     it("should generate a referral code for the user", async () => {
-      // dbUser middleware
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
-      userService.requestReferCode.mockResolvedValueOnce({ referCode: "JOHND123" });
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.requestReferCode.mockResolvedValueOnce({ referCode: "JOHND123" });
 
       const res = await request(app)
         .post("/api/referral/request-code")
@@ -83,7 +69,7 @@ describe("Referral Endpoints", () => {
 
   describe("GET /api/referral/tracker/:referCode (public)", () => {
     it("should return tracker stats for a referral code", async () => {
-      userService.getReferralTrackerStats.mockResolvedValueOnce({
+      mockUserService.getReferralTrackerStats.mockResolvedValueOnce({
         referCode: "JOHND123",
         totalReferrals: 5,
         activeReferrals: 3,

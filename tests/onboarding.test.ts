@@ -1,73 +1,23 @@
+import { mockUserService, mockAddressService, mockZynkService, mockUserRepository } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
+import { AUTH_TOKEN } from "./helpers/auth";
 import { mockUser, mockAddress, validCreateAddressBody } from "./helpers/mock-data";
+import { setupAuthOnly } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-jest.mock("../services/address.service", () => ({
-  __esModule: true,
-  default: {
-    getAllByUserId: jest.fn(),
-    getById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  },
-}));
-
-jest.mock("../services/zynk.service", () => ({
-  __esModule: true,
-  default: {
-    createEntity: jest.fn(),
-    startKyc: jest.fn(),
-    getKycStatus: jest.fn(),
-    generatePlaidLinkToken: jest.fn(),
-    addExternalAccount: jest.fn(),
-    addDepositAccount: jest.fn(),
-  },
-}));
-
-jest.mock("../repositories/user.repository", () => ({
-  __esModule: true,
-  default: {
-    findById: jest.fn(),
-    findByClerkUserId: jest.fn(),
-    findByZynkEntityId: jest.fn(),
-    update: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-const addressService = require("../services/address.service").default;
-const zynkService = require("../services/zynk.service").default;
-const userRepository = require("../repositories/user.repository").default;
-
 describe("Onboarding Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
+    setupAuthOnly();
   });
 
   describe("POST /api/onboarding/address", () => {
     it("should submit address and create entity", async () => {
-      // dbUser middleware
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
-      addressService.create.mockResolvedValueOnce(mockAddress);
-      zynkService.createEntity.mockResolvedValueOnce(undefined);
-      userRepository.findById.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockAddressService.create.mockResolvedValueOnce(mockAddress);
+      mockZynkService.createEntity.mockResolvedValueOnce(undefined);
+      mockUserRepository.findById.mockResolvedValueOnce({
         ...mockUser,
         zynkEntityId: "zynk_entity_123",
       });
@@ -85,9 +35,9 @@ describe("Onboarding Endpoints", () => {
 
     it("should skip entity creation if already exists", async () => {
       const userWithEntity = { ...mockUser, zynkEntityId: "existing_entity" };
-      userService.getByClerkUserId.mockResolvedValueOnce(userWithEntity);
-      addressService.create.mockResolvedValueOnce(mockAddress);
-      userRepository.findById.mockResolvedValueOnce(userWithEntity);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(userWithEntity);
+      mockAddressService.create.mockResolvedValueOnce(mockAddress);
+      mockUserRepository.findById.mockResolvedValueOnce(userWithEntity);
 
       const res = await request(app)
         .post("/api/onboarding/address")
@@ -95,11 +45,11 @@ describe("Onboarding Endpoints", () => {
         .send(validCreateAddressBody);
 
       expect(res.status).toBe(201);
-      expect(zynkService.createEntity).not.toHaveBeenCalled();
+      expect(mockZynkService.createEntity).not.toHaveBeenCalled();
     });
 
     it("should return 400 with invalid address data", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
 
       const res = await request(app)
         .post("/api/onboarding/address")
@@ -111,7 +61,7 @@ describe("Onboarding Endpoints", () => {
     });
 
     it("should return 404 when user not found in DB", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(null);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(null);
 
       const res = await request(app)
         .post("/api/onboarding/address")
@@ -130,9 +80,9 @@ describe("Onboarding Endpoints", () => {
         zynkEntityId: "zynk_entity_123",
         addresses: [mockAddress],
       };
-      userService.getByClerkUserId.mockResolvedValueOnce(userWithEntity);
-      userRepository.findById.mockResolvedValueOnce(userWithEntity);
-      zynkService.startKyc.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(userWithEntity);
+      mockUserRepository.findById.mockResolvedValueOnce(userWithEntity);
+      mockZynkService.startKyc.mockResolvedValueOnce({
         kycLink: "https://kyc.zynk.com/verify/123",
         message: "KYC link sent successfully",
       });
@@ -147,7 +97,7 @@ describe("Onboarding Endpoints", () => {
 
     it("should return 409 when user has no address", async () => {
       const userNoAddress = { ...mockUser, addresses: [] };
-      userService.getByClerkUserId.mockResolvedValueOnce(userNoAddress);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(userNoAddress);
 
       const res = await request(app)
         .post("/api/onboarding/kyc")
@@ -163,13 +113,13 @@ describe("Onboarding Endpoints", () => {
         zynkEntityId: null,
         addresses: [mockAddress],
       };
-      userService.getByClerkUserId.mockResolvedValueOnce(userWithAddress);
-      zynkService.createEntity.mockResolvedValueOnce(undefined);
-      userRepository.findById.mockResolvedValueOnce({
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(userWithAddress);
+      mockZynkService.createEntity.mockResolvedValueOnce(undefined);
+      mockUserRepository.findById.mockResolvedValueOnce({
         ...userWithAddress,
         zynkEntityId: "new_entity_123",
       });
-      zynkService.startKyc.mockResolvedValueOnce({
+      mockZynkService.startKyc.mockResolvedValueOnce({
         kycLink: "https://kyc.zynk.com/verify/456",
         message: "KYC link sent successfully",
       });
@@ -179,7 +129,7 @@ describe("Onboarding Endpoints", () => {
         .set("x-auth-token", AUTH_TOKEN);
 
       expect(res.status).toBe(200);
-      expect(zynkService.createEntity).toHaveBeenCalled();
+      expect(mockZynkService.createEntity).toHaveBeenCalled();
     });
   });
 });

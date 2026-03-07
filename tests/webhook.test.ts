@@ -1,3 +1,4 @@
+import { mockUserRepository } from "./helpers/service-mocks";
 import * as crypto from "node:crypto";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
@@ -5,17 +6,6 @@ import { mockUser } from "./helpers/mock-data";
 
 const app = createTestApp();
 
-jest.mock("../repositories/user.repository", () => ({
-  __esModule: true,
-  default: {
-    findByZynkEntityId: jest.fn(),
-    update: jest.fn(),
-    findById: jest.fn(),
-    findByClerkUserId: jest.fn(),
-  },
-}));
-
-const userRepository = require("../repositories/user.repository").default;
 const activityLogger = require("../lib/activity-logger").default;
 
 const WEBHOOK_SECRET = process.env.ZYNK_WEBHOOK_SECRET!;
@@ -83,11 +73,11 @@ describe("POST /api/webhook", () => {
   });
 
   it("should process approved KYC webhook successfully", async () => {
-    userRepository.findByZynkEntityId.mockResolvedValueOnce({
+    mockUserRepository.findByZynkEntityId.mockResolvedValueOnce({
       ...mockUser,
       zynkEntityId: "zynk_entity_123",
     });
-    userRepository.update.mockResolvedValueOnce({
+    mockUserRepository.update.mockResolvedValueOnce({
       ...mockUser,
       accountStatus: "ACTIVE",
     });
@@ -101,7 +91,7 @@ describe("POST /api/webhook", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(userRepository.update).toHaveBeenCalledWith(
+    expect(mockUserRepository.update).toHaveBeenCalledWith(
       mockUser.id,
       { accountStatus: "ACTIVE" }
     );
@@ -114,18 +104,11 @@ describe("POST /api/webhook", () => {
     };
     const sig = generateSignature(payload, WEBHOOK_SECRET);
 
-    // Signature is based on the body sent over the wire.
-    // The raw body captured by express.json verify callback is what we HMAC.
-    // supertest sends JSON, so the re-serialized path in verifyWebhookSignature is used.
-    // We just need a valid signature:
     const res = await request(app)
       .post("/api/webhook")
       .set("z-webhook-signature", sig)
       .send(payload);
 
-    // This should return 200 with "Event ignored" since eventCategory !== "kyc"
-    // But signature verification may fail because supertest may re-serialize body differently.
-    // Accept either 200 (event ignored) or 401 (sig mismatch due to serialization)
     expect([200, 401]).toContain(res.status);
   });
 
@@ -138,7 +121,6 @@ describe("POST /api/webhook", () => {
       .set("z-webhook-signature", sig)
       .send(payload);
 
-    // Either 400 (invalid payload) or 401 (sig mismatch)
     expect([400, 401]).toContain(res.status);
   });
 
@@ -152,7 +134,7 @@ describe("POST /api/webhook", () => {
       },
     };
 
-    userRepository.findByZynkEntityId.mockResolvedValueOnce({
+    mockUserRepository.findByZynkEntityId.mockResolvedValueOnce({
       ...mockUser,
       zynkEntityId: "zynk_entity_123",
     });
@@ -164,7 +146,6 @@ describe("POST /api/webhook", () => {
       .set("z-webhook-signature", sig)
       .send(payload);
 
-    // May be 200 or 401 depending on sig matching
     if (res.status === 200) {
       expect(activityLogger.logActivity).toHaveBeenCalled();
     }

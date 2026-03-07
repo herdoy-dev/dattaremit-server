@@ -1,60 +1,19 @@
+import { mockUserService, mockAdminService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsAdmin, AUTH_TOKEN } from "./helpers/auth";
+import { AUTH_TOKEN } from "./helpers/auth";
 import {
-  mockAdminUser,
   mockUser,
   validAdminCreateUserBody,
   validCreatePromoterBody,
 } from "./helpers/mock-data";
+import { setupAdminAuth } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-jest.mock("../services/admin.service", () => ({
-  __esModule: true,
-  default: {
-    getDashboardStats: jest.fn(),
-    getUsers: jest.fn(),
-    getUserById: jest.fn(),
-    createUser: jest.fn(),
-    updateUser: jest.fn(),
-    deleteUser: jest.fn(),
-    changeUserRole: jest.fn(),
-    toggleAchPush: jest.fn(),
-    getActivities: jest.fn(),
-    getRegistrationChart: jest.fn(),
-    getActivityTypeChart: jest.fn(),
-    getAccountStatusChart: jest.fn(),
-    getKycActivityChart: jest.fn(),
-    createPromoter: jest.fn(),
-    previewReferCode: jest.fn(),
-    getPromoters: jest.fn(),
-    getMarketingStats: jest.fn(),
-    getReferralStats: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-const adminService = require("../services/admin.service").default;
-
 describe("Admin Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsAdmin();
-    // adminAuth middleware fetches user
-    userService.getByClerkUserId.mockResolvedValue(mockAdminUser);
+    setupAdminAuth();
   });
 
   describe("Authentication & Authorization", () => {
@@ -64,7 +23,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("should return 403 for non-admin user", async () => {
-      userService.getByClerkUserId.mockResolvedValueOnce(mockUser);
+      mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
 
       const res = await request(app)
         .get("/api/admin/stats")
@@ -77,7 +36,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/stats", () => {
     it("should return dashboard stats", async () => {
-      adminService.getDashboardStats.mockResolvedValueOnce({
+      mockAdminService.getDashboardStats.mockResolvedValueOnce({
         totalUsers: 100,
         activeUsers: 80,
         pendingKyc: 10,
@@ -95,7 +54,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/users", () => {
     it("should return paginated users", async () => {
-      adminService.getUsers.mockResolvedValueOnce({
+      mockAdminService.getUsers.mockResolvedValueOnce({
         users: [mockUser],
         total: 1,
         page: 1,
@@ -112,7 +71,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("should support pagination params", async () => {
-      adminService.getUsers.mockResolvedValueOnce({
+      mockAdminService.getUsers.mockResolvedValueOnce({
         users: [],
         total: 0,
         page: 2,
@@ -124,11 +83,11 @@ describe("Admin Endpoints", () => {
         .set("x-auth-token", AUTH_TOKEN);
 
       expect(res.status).toBe(200);
-      expect(adminService.getUsers).toHaveBeenCalledWith(2, 10, undefined, undefined);
+      expect(mockAdminService.getUsers).toHaveBeenCalledWith(2, 10, undefined, undefined);
     });
 
     it("should filter by status", async () => {
-      adminService.getUsers.mockResolvedValueOnce({
+      mockAdminService.getUsers.mockResolvedValueOnce({
         users: [],
         total: 0,
       });
@@ -138,11 +97,11 @@ describe("Admin Endpoints", () => {
         .set("x-auth-token", AUTH_TOKEN);
 
       expect(res.status).toBe(200);
-      expect(adminService.getUsers).toHaveBeenCalledWith(1, 20, undefined, "ACTIVE");
+      expect(mockAdminService.getUsers).toHaveBeenCalledWith(1, 20, undefined, "ACTIVE");
     });
 
     it("should support search", async () => {
-      adminService.getUsers.mockResolvedValueOnce({
+      mockAdminService.getUsers.mockResolvedValueOnce({
         users: [],
         total: 0,
       });
@@ -152,11 +111,11 @@ describe("Admin Endpoints", () => {
         .set("x-auth-token", AUTH_TOKEN);
 
       expect(res.status).toBe(200);
-      expect(adminService.getUsers).toHaveBeenCalledWith(1, 20, "john", undefined);
+      expect(mockAdminService.getUsers).toHaveBeenCalledWith(1, 20, "john", undefined);
     });
 
     it("should cap limit at 100", async () => {
-      adminService.getUsers.mockResolvedValueOnce({
+      mockAdminService.getUsers.mockResolvedValueOnce({
         users: [],
         total: 0,
       });
@@ -165,13 +124,13 @@ describe("Admin Endpoints", () => {
         .get("/api/admin/users?limit=500")
         .set("x-auth-token", AUTH_TOKEN);
 
-      expect(adminService.getUsers).toHaveBeenCalledWith(1, 100, undefined, undefined);
+      expect(mockAdminService.getUsers).toHaveBeenCalledWith(1, 100, undefined, undefined);
     });
   });
 
   describe("POST /api/admin/users", () => {
     it("should create a user", async () => {
-      adminService.createUser.mockResolvedValueOnce(mockUser);
+      mockAdminService.createUser.mockResolvedValueOnce(mockUser);
 
       const res = await request(app)
         .post("/api/admin/users")
@@ -206,7 +165,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/users/:id", () => {
     it("should return user by id", async () => {
-      adminService.getUserById.mockResolvedValueOnce(mockUser);
+      mockAdminService.getUserById.mockResolvedValueOnce(mockUser);
 
       const res = await request(app)
         .get(`/api/admin/users/${mockUser.id}`)
@@ -219,7 +178,7 @@ describe("Admin Endpoints", () => {
 
   describe("PUT /api/admin/users/:id", () => {
     it("should update a user", async () => {
-      adminService.updateUser.mockResolvedValueOnce({
+      mockAdminService.updateUser.mockResolvedValueOnce({
         ...mockUser,
         firstName: "Updated",
       });
@@ -246,7 +205,7 @@ describe("Admin Endpoints", () => {
 
   describe("DELETE /api/admin/users/:id", () => {
     it("should delete a user", async () => {
-      adminService.deleteUser.mockResolvedValueOnce(undefined);
+      mockAdminService.deleteUser.mockResolvedValueOnce(undefined);
 
       const res = await request(app)
         .delete(`/api/admin/users/${mockUser.id}`)
@@ -260,7 +219,7 @@ describe("Admin Endpoints", () => {
 
   describe("PATCH /api/admin/users/:id/role", () => {
     it("should change user role", async () => {
-      adminService.changeUserRole.mockResolvedValueOnce({
+      mockAdminService.changeUserRole.mockResolvedValueOnce({
         ...mockUser,
         role: "ADMIN",
       });
@@ -297,7 +256,7 @@ describe("Admin Endpoints", () => {
 
   describe("PATCH /api/admin/users/:id/ach-push", () => {
     it("should toggle ACH push", async () => {
-      adminService.toggleAchPush.mockResolvedValueOnce({
+      mockAdminService.toggleAchPush.mockResolvedValueOnce({
         ...mockUser,
         achPushEnabled: true,
       });
@@ -324,7 +283,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/activities", () => {
     it("should return paginated activities", async () => {
-      adminService.getActivities.mockResolvedValueOnce({
+      mockAdminService.getActivities.mockResolvedValueOnce({
         activities: [],
         total: 0,
       });
@@ -340,7 +299,7 @@ describe("Admin Endpoints", () => {
 
   describe("Chart Endpoints", () => {
     it("GET /api/admin/charts/registrations", async () => {
-      adminService.getRegistrationChart.mockResolvedValueOnce([]);
+      mockAdminService.getRegistrationChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/registrations")
@@ -351,7 +310,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/activity-types", async () => {
-      adminService.getActivityTypeChart.mockResolvedValueOnce([]);
+      mockAdminService.getActivityTypeChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/activity-types")
@@ -362,7 +321,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/account-status", async () => {
-      adminService.getAccountStatusChart.mockResolvedValueOnce([]);
+      mockAdminService.getAccountStatusChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/account-status")
@@ -373,7 +332,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/kyc", async () => {
-      adminService.getKycActivityChart.mockResolvedValueOnce([]);
+      mockAdminService.getKycActivityChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/kyc")
@@ -386,7 +345,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/referral-stats", () => {
     it("should return referral stats", async () => {
-      adminService.getReferralStats.mockResolvedValueOnce({
+      mockAdminService.getReferralStats.mockResolvedValueOnce({
         stats: [],
         total: 0,
       });
@@ -402,7 +361,7 @@ describe("Admin Endpoints", () => {
 
   describe("Marketing Endpoints", () => {
     it("GET /api/admin/marketing/stats", async () => {
-      adminService.getMarketingStats.mockResolvedValueOnce({
+      mockAdminService.getMarketingStats.mockResolvedValueOnce({
         totalPromoters: 10,
       });
 
@@ -415,7 +374,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/marketing/promoters", async () => {
-      adminService.getPromoters.mockResolvedValueOnce({
+      mockAdminService.getPromoters.mockResolvedValueOnce({
         promoters: [],
         total: 0,
       });
@@ -429,7 +388,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/marketing/promoters/preview-refer-code", async () => {
-      adminService.previewReferCode.mockResolvedValueOnce({
+      mockAdminService.previewReferCode.mockResolvedValueOnce({
         referCode: "JOHNS123",
       });
 
@@ -452,7 +411,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("POST /api/admin/marketing/promoters", async () => {
-      adminService.createPromoter.mockResolvedValueOnce({
+      mockAdminService.createPromoter.mockResolvedValueOnce({
         ...mockUser,
         role: "PROMOTER",
         referCode: "PROMOU123",

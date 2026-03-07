@@ -1,45 +1,20 @@
+import { mockActivityService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
-import { mockAuthAsUser, AUTH_TOKEN } from "./helpers/auth";
-import { mockUser, mockActivity } from "./helpers/mock-data";
-
+import { AUTH_TOKEN } from "./helpers/auth";
+import { mockActivity } from "./helpers/mock-data";
+import { setupUserAuth } from "./helpers/test-utils";
 
 const app = createTestApp();
 
-jest.mock("../services/user.service", () => ({
-  __esModule: true,
-  default: {
-    getByClerkUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    validateReferCode: jest.fn(),
-    requestReferCode: jest.fn(),
-    getReferralTrackerStats: jest.fn(),
-  },
-}));
-
-jest.mock("../services/activity.service", () => ({
-  __esModule: true,
-  default: {
-    getActivities: jest.fn(),
-    getById: jest.fn(),
-  },
-}));
-
-const userService = require("../services/user.service").default;
-const activityService = require("../services/activity.service").default;
-
 describe("Activity Endpoints", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockAuthAsUser();
-    // dbUser middleware needs this
-    userService.getByClerkUserId.mockResolvedValue(mockUser);
+    setupUserAuth();
   });
 
   describe("GET /api/activity", () => {
     it("should return paginated activities", async () => {
-      activityService.getActivities.mockResolvedValueOnce({
+      mockActivityService.getActivities.mockResolvedValueOnce({
         items: [mockActivity],
         total: 1,
       });
@@ -57,7 +32,7 @@ describe("Activity Endpoints", () => {
     });
 
     it("should support pagination query params", async () => {
-      activityService.getActivities.mockResolvedValueOnce({
+      mockActivityService.getActivities.mockResolvedValueOnce({
         items: [],
         total: 0,
       });
@@ -88,7 +63,7 @@ describe("Activity Endpoints", () => {
 
   describe("GET /api/activity/:id", () => {
     it("should return activity by id", async () => {
-      activityService.getById.mockResolvedValueOnce(mockActivity);
+      mockActivityService.getById.mockResolvedValueOnce(mockActivity);
 
       const res = await request(app)
         .get(`/api/activity/${mockActivity.id}`)
@@ -100,7 +75,7 @@ describe("Activity Endpoints", () => {
     });
 
     it("should return 404 when activity belongs to another user", async () => {
-      activityService.getById.mockResolvedValueOnce({
+      mockActivityService.getById.mockResolvedValueOnce({
         ...mockActivity,
         userId: "other-user-id",
       });

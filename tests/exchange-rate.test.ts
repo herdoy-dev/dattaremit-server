@@ -1,16 +1,8 @@
+import { mockExchangeRateService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
 
 const app = createTestApp();
-
-jest.mock("../services/exchange-rate.service", () => ({
-  __esModule: true,
-  default: {
-    getRate: jest.fn(),
-  },
-}));
-
-const exchangeRateService = require("../services/exchange-rate.service").default;
 
 describe("GET /api/exchange-rate", () => {
   beforeEach(() => {
@@ -18,7 +10,7 @@ describe("GET /api/exchange-rate", () => {
   });
 
   it("should return exchange rate data", async () => {
-    exchangeRateService.getRate.mockResolvedValueOnce({
+    mockExchangeRateService.getRate.mockResolvedValueOnce({
       rate: 83.5,
       updatedAt: "2026-03-07T00:00:00.000Z",
       stale: false,
@@ -33,7 +25,7 @@ describe("GET /api/exchange-rate", () => {
   });
 
   it("should return 500 when service fails", async () => {
-    exchangeRateService.getRate.mockRejectedValueOnce(new Error("API down"));
+    mockExchangeRateService.getRate.mockRejectedValueOnce(new Error("API down"));
 
     const res = await request(app).get("/api/exchange-rate");
 
