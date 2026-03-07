@@ -3,6 +3,8 @@ import logger from "../lib/logger";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.GOOGLE_EMAIL || "noreply@dattapay.com",
     pass: process.env.GOOGLE_APP_PASSWORD,
