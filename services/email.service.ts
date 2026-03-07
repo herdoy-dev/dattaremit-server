@@ -27,7 +27,10 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
-    const masked = options.to.replace(/^(.{2}).*(@.*)$/, "$1***$2");
+    const atIndex = options.to.indexOf("@");
+    const masked = atIndex > 2
+      ? options.to.slice(0, 2) + "***" + options.to.slice(atIndex)
+      : "***";
     logger.error(`Failed to send email to ${masked}`, { error });
     return false;
   }
