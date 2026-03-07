@@ -31,10 +31,13 @@ class UserController {
       throw new AppError(403, "Cannot create account for a different user");
     }
 
-    // If user already exists, update their profile data
+    // If user already exists, only allow updates if account is still INITIAL
     const existingUser = await userService.getByClerkUserId(value.clerkUserId);
     if (existingUser) {
-      const { clerkUserId, ...updateData } = value;
+      if (existingUser.accountStatus !== "INITIAL") {
+        throw new AppError(403, "Profile cannot be modified after KYC approval. Use the update endpoint instead.");
+      }
+      const { clerkUserId, referredByCode: _referredByCode, ...updateData } = value;
       const updatedUser = await userService.update(existingUser.id, updateData);
       return res
         .status(200)

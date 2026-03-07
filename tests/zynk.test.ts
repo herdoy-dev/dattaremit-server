@@ -60,7 +60,8 @@ describe("Zynk Endpoints", () => {
 
   describe("POST /api/zynk/kyc", () => {
     it("should start KYC", async () => {
-      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
+      const userWithAddress = { ...mockUser, addresses: [{ id: "addr-1" }] };
+      mockUserService.getByClerkUserId.mockResolvedValue(userWithAddress);
       mockZynkService.startKyc.mockResolvedValueOnce({
         kycLink: "https://kyc.zynk.com/verify",
       });
@@ -72,6 +73,18 @@ describe("Zynk Endpoints", () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.message).toBe("KYC started successfully");
+    });
+
+    it("should return 409 when user has no addresses", async () => {
+      mockUserService.getByClerkUserId.mockResolvedValue(mockUser);
+
+      const res = await request(app)
+        .post("/api/zynk/kyc")
+        .set("x-auth-token", AUTH_TOKEN);
+
+      expect(res.status).toBe(409);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe("Please complete the address step first.");
     });
   });
 

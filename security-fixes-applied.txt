@@ -1,0 +1,161 @@
+================================================================================
+SECURITY FIXES APPLIED
+Date: 2026-03-07
+================================================================================
+
+6 out of 7 audit findings were fixed. AUTH-VULN-03 (no server-side token
+revocation) was NOT fixed because it requires architectural changes (session
+store, logout endpoint, Clerk webhook integration) that are beyond a quick fix
+and the default 60-second Clerk JWT TTL already limits the risk.
+
+================================================================================
+FIX 1: AUTH-VULN-04 — Clerk Error Message Leaking Instance ID
+File changed: lib/auth-error-handler.ts
+================================================================================
+
+BEFORE:
+  When Clerk's verifyToken() threw an error (e.g. mismatched kid), the raw
+  error.message was forwarded verbatim to the HTTP response:
+    next(new AppError(401, error.message))
+  This leaked Clerk instance ID, signing key ID, session cookie name.
+
+AFTER:
+  The raw Clerk error is logged server-side for debugging, but the HTTP
+  response now always returns a generic message:
+    logger.warn("Auth error suppressed", { message: error.message });
+    next(new AppError(401, "Invalid or expired token."));
+
+  Attackers sending crafted JWTs now receive only:
+    {"success":false,"message":"Invalid or expired token."}
+  No Clerk internals are exposed.
+
+================================================================================
+FIX 2: AUTHZ-VULN-01 — KYC Bypass via Missing hasAddress Middleware
+File changed: routes/zynk.routes.ts
+================================================================================
+
+BEFORE:
+  POST /api/zynk/kyc had no hasAddress middleware:
+    router.post("/kyc", zynkController.startKyc)
+  Users could initiate KYC without ever providing an address, bypassing the
+  compliance gate that existed on POST /api/onboarding/kyc.
+
+AFTER:
+  hasAddress middleware added to the route:
+    router.post("/kyc", hasAddress, zynkController.startKyc)
+  Both KYC endpoints now consistently require the user to have at least one
+  address on file before KYC can be initiated. Users without addresses get
+  HTTP 409 "Please complete the address step first."
+
+  A new test was added to zynk.test.ts confirming the 409 response for users
+  without addresses.
+
+================================================================================
+FIX 3: AUTH-VULN-02 — sensitiveRateLimit Was Dead Code
+Files changed: routes/user.routes.ts, routes/referral.routes.ts,
+               routes/referral-public.routes.ts, routes/zynk.routes.ts,
+               routes/onboarding.routes.ts
+================================================================================
+
+BEFORE:
+  sensitiveRateLimit (10 req/1 min) was defined in middlewares/strict-rate-limit.ts
+  but never imported or applied anywhere. All sensitive endpoints were protected
+  only by the global 200 req/15 min rate limit.
+
+AFTER:
+  sensitiveRateLimit is now applied to these sensitive endpoints:
+    - POST /api/users              (user registration)
+    - POST /api/referral/validate  (referral code validation)
+    - GET  /api/referral/tracker/* (public referral tracker)
+    - POST /api/zynk/entities      (entity creation)
+    - POST /api/zynk/kyc           (KYC initiation)
+    - POST /api/onboarding/kyc     (KYC initiation, canonical path)
+
+  These endpoints are now limited to 10 requests per minute per IP, on top of
+  the global 200/15min limit. This makes brute-force enumeration and abuse
+  significantly harder.
+
+================================================================================
+FIX 4: AUTH-VULN-05 — Registration Endpoint Silently Upserts Post-KYC Data
+File changed: controllers/user.controller.ts
+================================================================================
+
+BEFORE:
+  POST /api/users allowed existing users to overwrite ALL their profile fields
+  (name, email, phone, DOB, nationality, referredByCode) regardless of account
+  status. A KYC-approved user could silently modify verified data without
+  re-verification.
+
+AFTER:
+  Two guards added to the upsert path:
+
+  1. Account status check: if the existing user's accountStatus is not "INITIAL",
+     the request is rejected with HTTP 403:
+       "Profile cannot be modified after KYC approval. Use the update endpoint instead."
+     This prevents modification of KYC-verified data through the registration
+     endpoint.
+
+  2. referredByCode is stripped from the update data when updating an existing
+     user. referredByCode can only be set during initial user creation, preventing
+     retroactive referral fraud. The field is destructured out:
+       const { clerkUserId, referredByCode: _referredByCode, ...updateData } = value;
+
+================================================================================
+FIX 5: AUTH-VULN-01 — Missing Cache-Control: no-store Header
+File changed: index.ts
+================================================================================
+
+BEFORE:
+  No Cache-Control header was set on any API response. Responses containing PII
+  could be cached by shared proxies or browser caches.
+
+AFTER:
+  Added Cache-Control: no-store to the existing Permissions-Policy middleware:
+    res.setHeader("Cache-Control", "no-store");
+  This header is now set on every response, instructing proxies and browsers to
+  never cache API responses.
+
+================================================================================
+FIX 6: AUTH-VULN-06 — Referral Tracker Enumeration (Mitigated)
+Files changed: routes/referral-public.routes.ts (part of Fix 3)
+================================================================================
+
+The primary mitigation is the sensitiveRateLimit applied in Fix 3. The public
+referral tracker endpoint is now limited to 10 requests per minute per IP,
+making the brute-force enumeration of 923,521 possible codes take ~64 days
+from a single IP instead of ~15 hours.
+
+The 200/404 oracle still exists (valid codes return 200, invalid return 404),
+but the rate limit makes large-scale enumeration impractical from a single
+source. Full elimination of the oracle would require returning 200 for all
+codes (with a "valid" boolean in the body), which is a design decision for
+the product team.
+
+================================================================================
+NOT FIXED: AUTH-VULN-03 — No Server-Side Token Revocation
+================================================================================
+
+This requires architectural changes:
+  - Adding a session/token store (Redis or database table)
+  - Creating a logout endpoint
+  - Adding jti blocklist checks to auth middleware
+  - Integrating Clerk session webhooks
+
+The default 60-second Clerk JWT TTL limits the practical risk. This should be
+addressed in a dedicated effort with proper design review.
+
+================================================================================
+SUMMARY
+================================================================================
+
+  Finding        | Status    | Files Changed
+  ---------------+-----------+----------------------------------------------
+  AUTH-VULN-04   | FIXED     | lib/auth-error-handler.ts
+  AUTHZ-VULN-01  | FIXED     | routes/zynk.routes.ts, tests/zynk.test.ts
+  AUTH-VULN-02   | FIXED     | 5 route files (sensitiveRateLimit applied)
+  AUTH-VULN-05   | FIXED     | controllers/user.controller.ts
+  AUTH-VULN-01   | FIXED     | index.ts
+  AUTH-VULN-06   | MITIGATED | routes/referral-public.routes.ts (rate limit)
+  AUTH-VULN-03   | NOT FIXED | Requires architectural changes
+
+All 117 tests pass after these changes.

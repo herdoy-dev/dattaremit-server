@@ -2,7 +2,9 @@ import type { RequestHandler } from "express";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import zynkController from "../controllers/zynk.controller";
+import hasAddress from "../middlewares/has-address";
 import isApproved from "../middlewares/is-approved";
+import { sensitiveRateLimit } from "../middlewares/strict-rate-limit";
 
 const plaidTokenLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -15,8 +17,8 @@ const plaidTokenLimiter = rateLimit({
 
 const router = express.Router();
 
-router.post("/entities", zynkController.createEntity as RequestHandler);
-router.post("/kyc", zynkController.startKyc as RequestHandler);
+router.post("/entities", sensitiveRateLimit as RequestHandler, zynkController.createEntity as RequestHandler);
+router.post("/kyc", sensitiveRateLimit as RequestHandler, hasAddress, zynkController.startKyc as RequestHandler);
 router.get("/kyc/status", zynkController.getKycStatus as RequestHandler);
 
 router.post(
