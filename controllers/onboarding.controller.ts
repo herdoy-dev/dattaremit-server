@@ -1,6 +1,8 @@
-import type { NextFunction, Response } from "express";
+import type { Response } from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
+import asyncHandler from "../lib/async-handler";
+import validate from "../lib/validate";
 import type { AuthRequest } from "../middlewares/auth";
 import userRepository from "../repositories/user.repository";
 import zynkService from "../services/zynk.service";
@@ -10,79 +12,64 @@ import { sendKycEmail } from "../services/email.service";
 import logger from "../lib/logger";
 
 class OnboardingController {
-  async submitAddress(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const dbUser = req.user;
+  submitAddress = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dbUser = req.user;
 
-      // Step 1: Validate and save the address
-      const { error, value } = createAddressSchema.validate(
-        { ...req.body, userId: dbUser.id },
-        { abortEarly: false, stripUnknown: true }
-      );
+    // Step 1: Validate and save the address
+    const value = validate(createAddressSchema, { ...req.body, userId: dbUser.id });
 
-      if (error) {
-        throw new AppError(400, error.details.map((d) => d.message).join(", "));
-      }
+    const address = await addressService.create(value);
 
-      const address = await addressService.create(value);
-
-      // Step 2: Create Zynk entity if not already created
-      if (!dbUser.zynkEntityId) {
-        await zynkService.createEntity(dbUser.id);
-      }
-
-      const updatedUser = await userRepository.findById(dbUser.id);
-
-      res.status(201).json(
-        new APIResponse(true, "Address saved and entity created", {
-          address,
-          entityCreated: !!updatedUser?.zynkEntityId,
-        })
-      );
-    } catch (error) {
-      next(error);
+    // Step 2: Create Zynk entity if not already created
+    if (!dbUser.zynkEntityId) {
+      await zynkService.createEntity(dbUser.id);
     }
-  }
 
-  async requestKyc(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const dbUser = req.user;
+    const updatedUser = await userRepository.findById(dbUser.id);
 
-      // Create Zynk entity if not already created (fallback)
-      if (!dbUser.zynkEntityId) {
-        await zynkService.createEntity(dbUser.id);
-      }
+    res.status(201).json(
+      new APIResponse(true, "Address saved and entity created", {
+        address,
+        entityCreated: !!updatedUser?.zynkEntityId,
+      })
+    );
+  });
 
-      // Re-fetch user to get updated zynkEntityId
-      const updatedUser = await userRepository.findById(dbUser.id);
-      if (!updatedUser || !updatedUser.zynkEntityId) {
-        throw new AppError(500, "Failed to create Zynk entity");
-      }
+  requestKyc = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dbUser = req.user;
 
-      // Start KYC process
-      const kycData = await zynkService.startKyc(updatedUser.id);
+    // Create Zynk entity if not already created (fallback)
+    if (!dbUser.zynkEntityId) {
+      await zynkService.createEntity(dbUser.id);
+    }
 
-      // Email the KYC link to the user
-      if (kycData.kycLink) {
-        const emailSent = await sendKycEmail(
-          updatedUser.email,
-          kycData.kycLink,
-          updatedUser.firstName
+    // Re-fetch user to get updated zynkEntityId
+    const updatedUser = await userRepository.findById(dbUser.id);
+    if (!updatedUser || !updatedUser.zynkEntityId) {
+      throw new AppError(500, "Failed to create Zynk entity");
+    }
+
+    // Start KYC process
+    const kycData = await zynkService.startKyc(updatedUser.id);
+
+    // Email the KYC link to the user
+    if (kycData.kycLink) {
+      const emailSent = await sendKycEmail(
+        updatedUser.email,
+        kycData.kycLink,
+        updatedUser.firstName
+      );
+      if (!emailSent) {
+        logger.warn(
+          `KYC email failed to send to user ${updatedUser.id}, but KYC process started`
         );
-        if (!emailSent) {
-          logger.warn(
-            `KYC email failed to send to user ${updatedUser.id}, but KYC process started`
-          );
-        }
       }
-
-      res
-        .status(200)
-        .json(new APIResponse(true, kycData.message || "KYC verification initiated"));
-    } catch (error) {
-      next(error);
     }
-  }
+
+    res
+      .status(200)
+      .json(new APIResponse(true, kycData.message || "KYC verification initiated"));
+  });
 }
 
 export default new OnboardingController();

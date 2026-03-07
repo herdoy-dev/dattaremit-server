@@ -8,6 +8,69 @@ import { generateUserReferCode, generatePromoterReferCode } from "../lib/refer-c
 import type { AdminCreateUserInput, AdminCreatePromoterInput, AdminUpdateUserInput } from "../schemas/admin.schema";
 import activityLogger from "../lib/activity-logger";
 
+async function logAdminAction(
+  actingAdminId: string | undefined,
+  description: string,
+  metadata: Record<string, unknown>
+) {
+  if (actingAdminId) {
+    await activityLogger.logActivity({
+      userId: actingAdminId,
+      type: ActivityType.ADMIN_ACTION,
+      status: ActivityStatus.COMPLETE,
+      description,
+      metadata,
+    });
+  }
+}
+
+async function ensureEmailUnique(
+  tx: { user: { findUnique: Function } },
+  email: string
+) {
+  const emailHash = createSearchHash(email);
+  const existingUser = await tx.user.findUnique({
+    where: { emailHash },
+  });
+
+  if (existingUser) {
+    throw new AppError(409, "User with this email already exists");
+  }
+}
+
+function prepareEncryptedUserData(data: { dateOfBirth?: Date; [key: string]: unknown }) {
+  const { dateOfBirth, ...rest } = data;
+  return encryptUserData({
+    ...rest,
+    ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
+  });
+}
+
+async function generateUniquePromoterCode(
+  lookup: { findUnique: Function },
+  firstName: string,
+  lastName: string
+) {
+  const baseCode = generatePromoterReferCode(firstName, lastName);
+  let referCode = baseCode;
+  let suffix = 2;
+
+  const MAX_CODE_ATTEMPTS = 100;
+  while (suffix <= MAX_CODE_ATTEMPTS + 1) {
+    const existing = await lookup.findUnique({
+      where: { referCode },
+    });
+    if (!existing) return referCode;
+    referCode = `${baseCode}${suffix}`;
+    suffix++;
+    if (suffix > MAX_CODE_ATTEMPTS + 1) {
+      throw new AppError(500, "Failed to generate unique promoter refer code");
+    }
+  }
+
+  return referCode;
+}
+
 class AdminService {
   async getDashboardStats() {
     const [totalUsers, activeUsers, pendingKyc, totalActivities, recentUsers, recentActivities] =
@@ -189,21 +252,10 @@ class AdminService {
 
   async createUser(data: AdminCreateUserInput, actingAdminId?: string) {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
-    const encryptedData = encryptUserData({
-      ...dataToEncrypt,
-      dateOfBirth: data.dateOfBirth.toISOString(),
-    });
+    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
 
     return prismaClient.$transaction(async (tx) => {
-      // Check email uniqueness
-      const emailHash = createSearchHash(data.email);
-      const existingUser = await tx.user.findUnique({
-        where: { emailHash },
-      });
-
-      if (existingUser) {
-        throw new AppError(409, "User with this email already exists");
-      }
+      await ensureEmailUnique(tx, data.email);
 
       // Generate unique refer code
       let referCode: string | null = null;
@@ -230,15 +282,10 @@ class AdminService {
         include: { addresses: true },
       });
 
-      if (actingAdminId) {
-        await activityLogger.logActivity({
-          userId: actingAdminId,
-          type: ActivityType.ADMIN_ACTION,
-          status: ActivityStatus.COMPLETE,
-          description: `Admin created user ${result.id}`,
-          metadata: { action: "createUser", targetUserId: result.id },
-        });
-      }
+      await logAdminAction(actingAdminId, `Admin created user ${result.id}`, {
+        action: "createUser",
+        targetUserId: result.id,
+      });
 
       return decryptUserData(result);
     });
@@ -246,40 +293,16 @@ class AdminService {
 
   async createPromoter(data: AdminCreatePromoterInput, actingAdminId?: string) {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
-    const encryptedData = encryptUserData({
-      ...dataToEncrypt,
-      dateOfBirth: data.dateOfBirth.toISOString(),
-    });
+    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
 
     return prismaClient.$transaction(async (tx) => {
-      // Check email uniqueness
-      const emailHash = createSearchHash(data.email);
-      const existingUser = await tx.user.findUnique({
-        where: { emailHash },
-      });
+      await ensureEmailUnique(tx, data.email);
 
-      if (existingUser) {
-        throw new AppError(409, "User with this email already exists");
-      }
-
-      // Generate unique promoter refer code: Datta-{FirstName}{LastNameInitial}
-      const baseCode = generatePromoterReferCode(data.firstName, data.lastName);
-      let referCode = baseCode;
-      let suffix = 2;
-
-      // Check for uniqueness, append incrementing number if needed (max 100 attempts)
-      const MAX_CODE_ATTEMPTS = 100;
-      while (suffix <= MAX_CODE_ATTEMPTS + 1) {
-        const existing = await tx.user.findUnique({
-          where: { referCode },
-        });
-        if (!existing) break;
-        referCode = `${baseCode}${suffix}`;
-        suffix++;
-        if (suffix > MAX_CODE_ATTEMPTS + 1) {
-          throw new AppError(500, "Failed to generate unique promoter refer code");
-        }
-      }
+      const referCode = await generateUniquePromoterCode(
+        tx.user,
+        data.firstName,
+        data.lastName
+      );
 
       const result = await tx.user.create({
         data: {
@@ -293,37 +316,22 @@ class AdminService {
         include: { addresses: true },
       });
 
-      if (actingAdminId) {
-        await activityLogger.logActivity({
-          userId: actingAdminId,
-          type: ActivityType.ADMIN_ACTION,
-          status: ActivityStatus.COMPLETE,
-          description: `Admin created promoter ${result.id}`,
-          metadata: { action: "createPromoter", targetUserId: result.id, role },
-        });
-      }
+      await logAdminAction(actingAdminId, `Admin created promoter ${result.id}`, {
+        action: "createPromoter",
+        targetUserId: result.id,
+        role,
+      });
 
       return decryptUserData(result);
     });
   }
 
   async previewReferCode(firstName: string, lastName: string) {
-    const baseCode = generatePromoterReferCode(firstName, lastName);
-    let referCode = baseCode;
-    let suffix = 2;
-
-    const MAX_CODE_ATTEMPTS = 100;
-    while (suffix <= MAX_CODE_ATTEMPTS + 1) {
-      const existing = await prismaClient.user.findUnique({
-        where: { referCode },
-      });
-      if (!existing) break;
-      referCode = `${baseCode}${suffix}`;
-      suffix++;
-      if (suffix > MAX_CODE_ATTEMPTS + 1) {
-        throw new AppError(500, "Failed to generate unique promoter refer code");
-      }
-    }
+    const referCode = await generateUniquePromoterCode(
+      prismaClient.user,
+      firstName,
+      lastName
+    );
 
     return { referCode };
   }
@@ -389,11 +397,7 @@ class AdminService {
 
   async updateUser(id: string, data: AdminUpdateUserInput, actingAdminId?: string) {
     const { referValue, ...rest } = data;
-    const dataToUpdate: Record<string, unknown> = { ...rest };
-    if (data.dateOfBirth) {
-      dataToUpdate.dateOfBirth = data.dateOfBirth.toISOString();
-    }
-    const encryptedData = encryptUserData(dataToUpdate);
+    const encryptedData = prepareEncryptedUserData(rest);
 
     // Add referValue back if present (not encrypted)
     if (referValue !== undefined) {
@@ -426,15 +430,11 @@ class AdminService {
         include: { addresses: true },
       });
 
-      if (actingAdminId) {
-        await activityLogger.logActivity({
-          userId: actingAdminId,
-          type: ActivityType.ADMIN_ACTION,
-          status: ActivityStatus.COMPLETE,
-          description: `Admin updated user ${id}`,
-          metadata: { action: "updateUser", targetUserId: id, updatedFields: Object.keys(data) },
-        });
-      }
+      await logAdminAction(actingAdminId, `Admin updated user ${id}`, {
+        action: "updateUser",
+        targetUserId: id,
+        updatedFields: Object.keys(data),
+      });
 
       return decryptUserData(result);
     });
@@ -461,12 +461,9 @@ class AdminService {
 
     await prismaClient.user.delete({ where: { id } });
 
-    await activityLogger.logActivity({
-      userId: actingAdminId,
-      type: ActivityType.ADMIN_ACTION,
-      status: ActivityStatus.COMPLETE,
-      description: `Admin deleted user ${id}`,
-      metadata: { action: "deleteUser", targetUserId: id },
+    await logAdminAction(actingAdminId, `Admin deleted user ${id}`, {
+      action: "deleteUser",
+      targetUserId: id,
     });
   }
 
@@ -494,12 +491,11 @@ class AdminService {
       data: { role },
     });
 
-    await activityLogger.logActivity({
-      userId: actingAdminId,
-      type: ActivityType.ADMIN_ACTION,
-      status: ActivityStatus.COMPLETE,
-      description: `Admin changed role of user ${id} to ${role}`,
-      metadata: { action: "changeUserRole", targetUserId: id, previousRole: user.role, newRole: role },
+    await logAdminAction(actingAdminId, `Admin changed role of user ${id} to ${role}`, {
+      action: "changeUserRole",
+      targetUserId: id,
+      previousRole: user.role,
+      newRole: role,
     });
 
     return decryptUserData(result);
@@ -517,15 +513,11 @@ class AdminService {
       data: { achPushEnabled: enabled },
     });
 
-    if (actingAdminId) {
-      await activityLogger.logActivity({
-        userId: actingAdminId,
-        type: ActivityType.ADMIN_ACTION,
-        status: ActivityStatus.COMPLETE,
-        description: `Admin ${enabled ? "enabled" : "disabled"} ACH push for user ${id}`,
-        metadata: { action: "toggleAchPush", targetUserId: id, enabled },
-      });
-    }
+    await logAdminAction(actingAdminId, `Admin ${enabled ? "enabled" : "disabled"} ACH push for user ${id}`, {
+      action: "toggleAchPush",
+      targetUserId: id,
+      enabled,
+    });
 
     return decryptUserData(result);
   }

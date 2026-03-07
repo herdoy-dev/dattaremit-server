@@ -1,5 +1,6 @@
 import Joi from "joi";
 import { ActivityStatus, ActivityType } from "../generated/prisma/client";
+import { uuidIdParamSchema, minOneFieldMessage } from "./common.schema";
 
 export const getActivitiesQuerySchema = Joi.object({
   status: Joi.string()
@@ -109,17 +110,9 @@ export const updateActivitySchema = Joi.object({
   }),
 })
   .min(1)
-  .messages({
-    "object.min": "At least one field is required to update",
-  });
+  .messages(minOneFieldMessage);
 
-export const activityIdParamSchema = Joi.object({
-  id: Joi.string().uuid().required().messages({
-    "string.base": "Activity ID must be a string",
-    "string.guid": "Activity ID must be a valid UUID",
-    "any.required": "Activity ID is required",
-  }),
-});
+export const activityIdParamSchema = uuidIdParamSchema("Activity ID");
 
 export type CreateActivityInput = {
   userId: string;

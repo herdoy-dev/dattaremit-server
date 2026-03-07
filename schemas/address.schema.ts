@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { uuidIdParamSchema, minOneFieldMessage } from "./common.schema";
 
 const VALID_ADDRESS_TYPES = ["PRESENT", "PERMANENT"];
 
@@ -93,17 +94,9 @@ export const updateAddressSchema = Joi.object({
   isDefault: Joi.boolean().optional(),
 })
   .min(1)
-  .messages({
-    "object.min": "At least one field is required to update",
-  });
+  .messages(minOneFieldMessage);
 
-export const addressIdParamSchema = Joi.object({
-  id: Joi.string().uuid().required().messages({
-    "string.base": "Address ID must be a string",
-    "string.guid": "Address ID must be a valid UUID",
-    "any.required": "Address ID is required",
-  }),
-});
+export const addressIdParamSchema = uuidIdParamSchema("Address ID");
 
 export type CreateAddressInput = {
   type: "PRESENT" | "PERMANENT";

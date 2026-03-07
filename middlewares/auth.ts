@@ -2,6 +2,7 @@ import { verifyToken } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
 import type { User } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
+import { handleAuthError } from "../lib/auth-error-handler";
 
 export interface AuthRequest extends Request {
   user: User;
@@ -12,11 +13,11 @@ export default async function auth(
   res: Response,
   next: NextFunction
 ) {
-  
+
 
   try {
     const token = req.header("x-auth-token") as string;
-    if (!token) { 
+    if (!token) {
       return next(new AppError(401, "Access denied. No token provided."));
     }
     const decoded = await verifyToken(token, {
@@ -29,12 +30,6 @@ export default async function auth(
 
     next();
   } catch (error) {
-    if (error instanceof AppError) {
-      next(error);
-    } else if (error instanceof Error) {
-      next(new AppError(401, error.message));
-    } else {
-      next(new AppError(401, "Invalid or expired token."));
-    }
+    handleAuthError(error, next);
   }
 }

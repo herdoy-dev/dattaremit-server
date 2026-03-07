@@ -2,7 +2,6 @@ import { ActivityStatus, ActivityType } from "../generated/prisma/client";
 import activityLogger from "../lib/activity-logger";
 import AppError from "../lib/AppError";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
-import addressRepository from "../repositories/address.repository";
 import userRepository from "../repositories/user.repository";
 import type {
   ZynkEntityData,
@@ -10,6 +9,22 @@ import type {
   ZynkAddDepositAccountData,
 } from "../repositories/zynk.repository";
 import zynkRepository from "../repositories/zynk.repository";
+
+async function requireUserWithEntity(userId: string) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AppError(404, "User not found");
+  }
+
+  if (!user.zynkEntityId) {
+    throw new AppError(
+      400,
+      "User does not have a Zynk entity. Create entity first.",
+    );
+  }
+
+  return user;
+}
 
 class ZynkService {
   async createEntity(userId: string) {
@@ -75,17 +90,7 @@ class ZynkService {
   }
 
   async startKyc(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first.",
-      );
-    }
+    const user = await requireUserWithEntity(userId);
 
     if (!user.nationality) {
       throw new AppError(
@@ -95,7 +100,7 @@ class ZynkService {
     }
 
     const response = await zynkRepository.startKyc(
-      user.zynkEntityId,
+      user.zynkEntityId!,
       user.nationality,
     );
 
@@ -111,19 +116,9 @@ class ZynkService {
   }
 
   async getKycStatus(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
+    const user = await requireUserWithEntity(userId);
 
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first.",
-      );
-    }
-
-    const response = await zynkRepository.getKycStatus(user.zynkEntityId);
+    const response = await zynkRepository.getKycStatus(user.zynkEntityId!);
 
     return response.data;
   }
@@ -244,19 +239,9 @@ class ZynkService {
     userId: string,
     options?: { androidPackageName?: string; redirectUri?: string },
   ) {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
+    const user = await requireUserWithEntity(userId);
 
-    if (!user.zynkEntityId) {
-      throw new AppError(
-        400,
-        "User does not have a Zynk entity. Create entity first.",
-      );
-    }
-
-    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId, options);
+    return zynkRepository.generatePlaidLinkToken(user.zynkEntityId!, options);
   }
 }
 

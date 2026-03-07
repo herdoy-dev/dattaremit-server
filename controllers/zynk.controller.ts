@@ -1,7 +1,9 @@
-import type { NextFunction, Response } from "express";
+import type { Response } from "express";
 import Joi from "joi";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
+import asyncHandler from "../lib/async-handler";
+import validate from "../lib/validate";
 import {
   withIdempotency,
   type IdempotentHandlerResult,
@@ -66,7 +68,7 @@ const ALLOWED_REDIRECT_HOSTS = new Set([
 ]);
 
 class ZynkController {
-  async createEntity(req: AuthRequest, res: Response, next: NextFunction) {
+  async createEntity(req: AuthRequest, res: Response, next: Function) {
     return withIdempotency(
       req,
       res,
@@ -87,100 +89,69 @@ class ZynkController {
     );
   }
 
-  async startKyc(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const dbUser = req.user;
-      const kycData = await zynkService.startKyc(dbUser.id);
-      res
-        .status(200)
-        .json(new APIResponse(true, "KYC started successfully", kycData));
-    } catch (error) {
-      next(error);
+  startKyc = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dbUser = req.user;
+    const kycData = await zynkService.startKyc(dbUser.id);
+    res
+      .status(200)
+      .json(new APIResponse(true, "KYC started successfully", kycData));
+  });
+
+  getKycStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dbUser = req.user;
+    const kycStatus = await zynkService.getKycStatus(dbUser.id);
+    res
+      .status(200)
+      .json(
+        new APIResponse(true, "KYC status retrieved successfully", kycStatus)
+      );
+  });
+
+  generatePlaidLinkToken = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dbUser = req.user;
+    const { android_package_name, redirect_uri } = req.body || {};
+
+    if (
+      android_package_name !== undefined &&
+      !ALLOWED_ANDROID_PACKAGES.has(android_package_name)
+    ) {
+      throw new AppError(400, "Invalid android_package_name");
     }
-  }
 
-  async getKycStatus(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const dbUser = req.user;
-      const kycStatus = await zynkService.getKycStatus(dbUser.id);
-      res
-        .status(200)
-        .json(
-          new APIResponse(true, "KYC status retrieved successfully", kycStatus)
-        );
-    } catch (error) {
-      next(error);
-    }
-  }
-
- 
-  async generatePlaidLinkToken(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
-    try {
-      const dbUser = req.user;
-      const { android_package_name, redirect_uri } = req.body || {};
-
-      if (
-        android_package_name !== undefined &&
-        !ALLOWED_ANDROID_PACKAGES.has(android_package_name)
-      ) {
-        throw new AppError(400, "Invalid android_package_name");
-      }
-
-      if (redirect_uri !== undefined) {
-        try {
-          const url = new URL(redirect_uri);
-          if (!ALLOWED_REDIRECT_HOSTS.has(url.hostname)) {
-            throw new AppError(400, "Invalid redirect_uri");
-          }
-        } catch {
+    if (redirect_uri !== undefined) {
+      try {
+        const url = new URL(redirect_uri);
+        if (!ALLOWED_REDIRECT_HOSTS.has(url.hostname)) {
           throw new AppError(400, "Invalid redirect_uri");
         }
+      } catch {
+        throw new AppError(400, "Invalid redirect_uri");
       }
-
-      const result = await zynkService.generatePlaidLinkToken(dbUser.id, {
-        androidPackageName: android_package_name,
-        redirectUri: redirect_uri,
-      });
-      res
-        .status(200)
-        .json(
-          new APIResponse(
-            true,
-            "Plaid link token generated successfully",
-            result
-          )
-        );
-    } catch (error) {
-      next(error);
     }
-  }
 
-  async addExternalAccount(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
+    const result = await zynkService.generatePlaidLinkToken(dbUser.id, {
+      androidPackageName: android_package_name,
+      redirectUri: redirect_uri,
+    });
+    res
+      .status(200)
+      .json(
+        new APIResponse(
+          true,
+          "Plaid link token generated successfully",
+          result
+        )
+      );
+  });
+
+  async addExternalAccount(req: AuthRequest, res: Response, next: Function) {
     return withIdempotency(
       req,
       res,
       next,
       { operation: "zynk:addExternalAccount" },
       async (): Promise<IdempotentHandlerResult<unknown>> => {
-        const { error, value } = addExternalAccountSchema.validate(req.body, {
-          abortEarly: false,
-          stripUnknown: true,
-        });
-
-        if (error) {
-          throw new AppError(
-            400,
-            error.details.map((d) => d.message).join(", ")
-          );
-        }
+        const value = validate(addExternalAccountSchema, req.body);
 
         const user = await zynkService.addExternalAccount(req.user.id, value);
         return {
@@ -195,28 +166,14 @@ class ZynkController {
     );
   }
 
-  async addDepositAccount(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
+  async addDepositAccount(req: AuthRequest, res: Response, next: Function) {
     return withIdempotency(
       req,
       res,
       next,
       { operation: "zynk:addDepositAccount" },
       async (): Promise<IdempotentHandlerResult<unknown>> => {
-        const { error, value } = addDepositAccountSchema.validate(req.body, {
-          abortEarly: false,
-          stripUnknown: true,
-        });
-
-        if (error) {
-          throw new AppError(
-            400,
-            error.details.map((d) => d.message).join(", ")
-          );
-        }
+        const value = validate(addDepositAccountSchema, req.body);
 
         const user = await zynkService.addDepositAccount(req.user.id, value);
         return {

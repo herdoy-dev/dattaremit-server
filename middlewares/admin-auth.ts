@@ -2,6 +2,7 @@ import { verifyToken } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
 import type { AuthRequest } from "./auth";
 import AppError from "../lib/AppError";
+import { handleAuthError } from "../lib/auth-error-handler";
 import userService from "../services/user.service";
 
 export default async function adminAuth(
@@ -31,12 +32,6 @@ export default async function adminAuth(
     (req as AuthRequest).user = user;
     next();
   } catch (error) {
-    if (error instanceof AppError) {
-      next(error);
-    } else if (error instanceof Error) {
-      next(new AppError(401, error.message));
-    } else {
-      next(new AppError(401, "Invalid or expired token."));
-    }
+    handleAuthError(error, next);
   }
 }
