@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
+import Joi from "joi";
 import type { AuthRequest } from "../middlewares/auth";
-import type { AccountStatus, ActivityStatus, ActivityType, UserRole } from "../generated/prisma/client";
+import { AccountStatus, ActivityStatus, ActivityType } from "../generated/prisma/client";
+import type { UserRole } from "../generated/prisma/client";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
@@ -12,6 +14,22 @@ import {
   adminCreatePromoterSchema,
   changeRoleSchema,
 } from "../schemas/admin.schema";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateUUID(id: string): string {
+  if (!id || !UUID_REGEX.test(id)) {
+    throw new AppError(400, "Invalid ID format: must be a valid UUID");
+  }
+  return id;
+}
+
+const toggleAchPushSchema = Joi.object({
+  enabled: Joi.boolean().required().messages({
+    "any.required": "enabled is required",
+    "boolean.base": "enabled must be a boolean",
+  }),
+});
 
 const MAX_PAGE_LIMIT = 100;
 const MAX_SEARCH_LENGTH = 200;
@@ -33,7 +51,9 @@ class AdminController {
 
   getUsers = asyncHandler(async (req: Request, res: Response) => {
     const { page, limit, search } = parsePagination(req.query);
-    const status = req.query.status as AccountStatus | undefined;
+    const status = req.query.status
+      ? validate(Joi.object({ status: Joi.string().valid(...Object.values(AccountStatus)).required() }), { status: req.query.status }).status as AccountStatus
+      : undefined;
 
     const result = await adminService.getUsers(page, limit, search, status);
     res
@@ -42,7 +62,7 @@ class AdminController {
   });
 
   getUserById = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const id = validateUUID(req.params.id as string);
     const user = await adminService.getUserById(id);
     res
       .status(200)
@@ -51,8 +71,12 @@ class AdminController {
 
   getActivities = asyncHandler(async (req: Request, res: Response) => {
     const { page, limit } = parsePagination(req.query);
-    const type = req.query.type as ActivityType | undefined;
-    const status = req.query.status as ActivityStatus | undefined;
+    const type = req.query.type
+      ? validate(Joi.object({ type: Joi.string().valid(...Object.values(ActivityType)).required() }), { type: req.query.type }).type as ActivityType
+      : undefined;
+    const status = req.query.status
+      ? validate(Joi.object({ status: Joi.string().valid(...Object.values(ActivityStatus)).required() }), { status: req.query.status }).status as ActivityStatus
+      : undefined;
 
     const result = await adminService.getActivities(page, limit, type, status);
     res
@@ -124,7 +148,9 @@ class AdminController {
 
   getPromoters = asyncHandler(async (req: Request, res: Response) => {
     const { page, limit, search } = parsePagination(req.query);
-    const role = req.query.role as "INFLUENCER" | "PROMOTER" | undefined;
+    const role = req.query.role
+      ? validate(Joi.object({ role: Joi.string().valid("INFLUENCER", "PROMOTER").required() }), { role: req.query.role }).role as "INFLUENCER" | "PROMOTER"
+      : undefined;
 
     const result = await adminService.getPromoters(page, limit, search, role);
     res
@@ -140,7 +166,7 @@ class AdminController {
   });
 
   updateUser = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const id = validateUUID(req.params.id as string);
     const value = validate(adminUpdateUserSchema, req.body);
 
     const actingAdminId = (req as AuthRequest).user.id;
@@ -151,7 +177,7 @@ class AdminController {
   });
 
   deleteUser = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const id = validateUUID(req.params.id as string);
     const actingAdminId = (req as AuthRequest).user.id;
     await adminService.deleteUser(id, actingAdminId);
     res
@@ -160,7 +186,7 @@ class AdminController {
   });
 
   changeUserRole = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const id = validateUUID(req.params.id as string);
     const value = validate(changeRoleSchema, req.body, { stripUnknown: false });
 
     const actingAdminId = (req as AuthRequest).user.id;
@@ -171,12 +197,8 @@ class AdminController {
   });
 
   toggleAchPush = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const { enabled } = req.body;
-
-    if (typeof enabled !== "boolean") {
-      throw new AppError(400, "enabled must be a boolean");
-    }
+    const id = validateUUID(req.params.id as string);
+    const { enabled } = validate(toggleAchPushSchema, req.body);
 
     const actingAdminId = (req as AuthRequest).user.id;
     const user = await adminService.toggleAchPush(id, enabled, actingAdminId);

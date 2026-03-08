@@ -133,7 +133,10 @@ class UserService {
     });
 
     if (!referrer) {
-      throw new AppError(404, "Referral code not found");
+      return {
+        referrer: { referCode },
+        stats: { totalReferrals: 0 },
+      };
     }
 
     const totalReferrals = await prismaClient.user.count({

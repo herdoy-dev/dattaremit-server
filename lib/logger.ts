@@ -9,10 +9,28 @@ if (!fs.existsSync(logsDir)) {
 
 const PII_PATTERNS: [RegExp, string][] = [
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[EMAIL_REDACTED]"],
-  [/\b\d{4,15}\b(?=.*phone)/gi, "[PHONE_REDACTED]"],
+  [/\b\d{10,15}\b/g, "[PHONE_REDACTED]"],
   [/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN_REDACTED]"],
+  [/\b\d{9}\b/g, "[SSN_REDACTED]"],
   [/\b\d{13,19}\b/g, "[CARD_REDACTED]"],
 ];
+
+const SENSITIVE_KEYS = new Set([
+  "firstName",
+  "lastName",
+  "dateOfBirth",
+  "addressLine1",
+  "addressLine2",
+  "accountNumber",
+  "routingNumber",
+  "plaidPublicToken",
+  "plaidAccountId",
+  "phoneNumber",
+  "phoneNumberPrefix",
+  "email",
+  "nationality",
+  "ipAddress",
+]);
 
 function maskPii(value: unknown): unknown {
   if (typeof value === "string") {
@@ -26,7 +44,11 @@ function maskPii(value: unknown): unknown {
   if (value && typeof value === "object") {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
-      result[k] = maskPii(v);
+      if (SENSITIVE_KEYS.has(k) && v != null) {
+        result[k] = "[PII_REDACTED]";
+      } else {
+        result[k] = maskPii(v);
+      }
     }
     return result;
   }
@@ -71,6 +93,7 @@ if (process.env.NODE_ENV !== "production") {
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.timestamp(),
+        piiMaskFormat(),
         winston.format.simple()
       ),
     })
@@ -80,6 +103,7 @@ if (process.env.NODE_ENV !== "production") {
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.timestamp(),
+        piiMaskFormat(),
         winston.format.simple()
       ),
     })
@@ -89,6 +113,7 @@ if (process.env.NODE_ENV !== "production") {
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.timestamp(),
+        piiMaskFormat(),
         winston.format.simple()
       ),
     })

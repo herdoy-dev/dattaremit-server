@@ -1,4 +1,5 @@
 import addressRepository from "../repositories/address.repository";
+import { toPublicUser } from "../lib/dto";
 import userRepository from "../repositories/user.repository";
 
 class AccountService {
@@ -9,7 +10,7 @@ class AccountService {
       : [];
 
     return {
-      user: user ?? null,
+      user: user ? toPublicUser(user) : null,
       addresses,
       accountStatus: user?.accountStatus ?? "INITIAL",
     };

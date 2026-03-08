@@ -57,7 +57,7 @@ export const sendKycEmail = async (
     logger.error("KYC link rejected: invalid protocol", { link: kycLink.substring(0, 30) });
     return false;
   }
-  const safeLink = encodeURI(kycLink);
+  const safeLink = escapeHtml(encodeURI(kycLink));
   return sendEmail({
     to,
     subject: "Complete Your KYC Verification - Dattapay",

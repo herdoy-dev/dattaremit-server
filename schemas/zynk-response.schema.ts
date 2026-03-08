@@ -90,7 +90,6 @@ export function validateZynkResponse<T>(
     logger.error("Zynk API response validation failed", {
       errorMessage,
       validationErrors: error.details.map((d) => d.message),
-      rawResponse: JSON.stringify(response),
     });
     throw new AppError(
       502,

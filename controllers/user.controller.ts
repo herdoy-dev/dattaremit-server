@@ -2,27 +2,13 @@ import type { Response } from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
+import { toPublicUser } from "../lib/dto";
 import validate from "../lib/validate";
 import type { AuthRequest } from "../middlewares/auth";
 import { createUserSchema, updateUserSchema } from "../schemas/user.schema";
 import userService from "../services/user.service";
 
 class UserController {
-  getByClerkUserId = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const clerkUserId = req.params.clerkUserId;
-    if (!clerkUserId) {
-      throw new AppError(400, "Clerk user ID is required");
-    }
-
-    const user = await userService.getByClerkUserId(clerkUserId);
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
-    res
-      .status(200)
-      .json(new APIResponse(true, "User retrieved successfully", user));
-  });
-
   create = asyncHandler(async (req: AuthRequest, res: Response) => {
     const value = validate(createUserSchema, req.body);
 
@@ -41,13 +27,13 @@ class UserController {
       const updatedUser = await userService.update(existingUser.id, updateData);
       return res
         .status(200)
-        .json(new APIResponse(true, "Profile updated successfully", updatedUser));
+        .json(new APIResponse(true, "Profile updated successfully", toPublicUser(updatedUser)));
     }
 
     const user = await userService.create(value);
     res
       .status(201)
-      .json(new APIResponse(true, "User created successfully", user));
+      .json(new APIResponse(true, "User created successfully", toPublicUser(user)));
   });
 
   update = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -57,7 +43,7 @@ class UserController {
     const user = await userService.update(dbUser.id, bodyValue);
     res
       .status(200)
-      .json(new APIResponse(true, "User updated successfully", user));
+      .json(new APIResponse(true, "User updated successfully", toPublicUser(user)));
   });
 }
 

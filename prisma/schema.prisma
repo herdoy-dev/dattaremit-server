@@ -48,7 +48,7 @@ model Address {
   postalCode   String
   isDefault    Boolean     @default(false)
   userId       String      @db.Uuid
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   created_at   DateTime    @default(now())
   updated_at   DateTime    @updatedAt
 
@@ -78,6 +78,7 @@ enum AccountStatus {
   ACTIVE
   PENDING
   REJECTED
+  DELETED
 
   @@map("account_status")
 }
@@ -128,7 +129,7 @@ enum ActivityType {
 model Activity {
   id          String         @id @default(uuid()) @db.Uuid
   userId      String         @db.Uuid
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   type        ActivityType
   status      ActivityStatus @default(PENDING)
   description String?

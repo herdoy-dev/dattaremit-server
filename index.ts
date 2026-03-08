@@ -1,6 +1,34 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+// ---------- Startup env validation ----------
+const REQUIRED_ENV_VARS = [
+  "DATABASE_URL",
+  "CLERK_SECRET_KEY",
+  "ENCRYPTION_KEY",
+  "ZYNK_API_BASE_URL",
+  "ZYNK_API_TOKEN",
+  "ZYNK_WEBHOOK_SECRET",
+  "GOOGLE_EMAIL",
+  "GOOGLE_APP_PASSWORD",
+] as const;
+
+const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error(
+    `FATAL: Missing required environment variables: ${missingVars.join(", ")}`,
+  );
+  process.exit(1);
+}
+
+if (!/^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY!)) {
+  console.error(
+    "FATAL: ENCRYPTION_KEY must be exactly 64 hexadecimal characters.",
+  );
+  process.exit(1);
+}
+// ---------- End env validation ----------
+
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -19,6 +47,8 @@ import exchangeRate from "./routes/exchange-rate.routes";
 import referralPublic from "./routes/referral-public.routes";
 
 const app = express();
+
+app.disable("etag");
 
 app.use(requestId);
 
@@ -95,20 +125,11 @@ app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 app.get("/health", async (_req, res) => {
   try {
-    // Verify database connectivity
     await prismaClient.$queryRaw`SELECT 1`;
-    res.status(200).json({
-      status: "healthy",
-      database: "connected",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error("Health check failed - database unreachable", { error });
-    res.status(503).json({
-      status: "unhealthy",
-      database: "disconnected",
-      timestamp: new Date().toISOString(),
-    });
+    res.status(200).json({ status: "ok" });
+  } catch (err) {
+    logger.error("Health check failed", { error: err });
+    res.status(503).json({ status: "error" });
   }
 });
 

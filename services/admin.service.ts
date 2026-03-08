@@ -8,6 +8,14 @@ import { generateUserReferCode, generatePromoterReferCode } from "../lib/refer-c
 import type { AdminCreateUserInput, AdminCreatePromoterInput, AdminUpdateUserInput } from "../schemas/admin.schema";
 import activityLogger from "../lib/activity-logger";
 
+/**
+ * Escapes special ILIKE/LIKE wildcard characters (%, _, \) in a search string
+ * to prevent users from injecting wildcard patterns.
+ */
+function escapeIlike(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 async function logAdminAction(
   actingAdminId: string | undefined,
   description: string,
@@ -117,9 +125,10 @@ class AdminService {
     }
 
     if (search) {
+      const sanitized = escapeIlike(search);
       where.OR = [
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: sanitized, mode: "insensitive" } },
+        { lastName: { contains: sanitized, mode: "insensitive" } },
       ];
     }
 
@@ -340,18 +349,23 @@ class AdminService {
     page: number,
     limit: number,
     search?: string,
-    role?: "INFLUENCER" | "PROMOTER"
+    role?: string
   ) {
+    if (role && role !== "INFLUENCER" && role !== "PROMOTER") {
+      throw new AppError(400, "Invalid role filter");
+    }
+
     const skip = (page - 1) * limit;
 
     const where: Prisma.UserWhereInput = {
-      role: role ? role : { in: ["INFLUENCER", "PROMOTER"] },
+      role: role ? (role as "INFLUENCER" | "PROMOTER") : { in: ["INFLUENCER", "PROMOTER"] as const },
     };
 
     if (search) {
+      const sanitized = escapeIlike(search);
       where.OR = [
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: sanitized, mode: "insensitive" } },
+        { lastName: { contains: sanitized, mode: "insensitive" } },
       ];
     }
 
@@ -459,9 +473,26 @@ class AdminService {
       }
     }
 
-    await prismaClient.user.delete({ where: { id } });
+    // Soft-delete: anonymize PII and set status to DELETED.
+    // Activity records are preserved for audit trail.
+    const anonymizedEmail = `deleted_${crypto.createHash("sha256").update(id).digest("hex")}@deleted.invalid`;
+    const anonymizedData = encryptUserData({
+      firstName: "DELETED",
+      lastName: "DELETED",
+      email: anonymizedEmail,
+      phone: "0000000000",
+    });
 
-    await logAdminAction(actingAdminId, `Admin deleted user ${id}`, {
+    await prismaClient.user.update({
+      where: { id },
+      data: {
+        ...(anonymizedData as Parameters<typeof prismaClient.user.update>[0]["data"]),
+        accountStatus: "DELETED" as AccountStatus,
+        clerkUserId: `deleted_${id}`,
+      },
+    });
+
+    await logAdminAction(actingAdminId, `Admin soft-deleted user ${id}`, {
       action: "deleteUser",
       targetUserId: id,
     });
@@ -532,7 +563,7 @@ class AdminService {
     let whereClause = Prisma.sql`WHERE u."referCode" IS NOT NULL`;
 
     if (search) {
-      const searchPattern = `%${search}%`;
+      const searchPattern = `%${escapeIlike(search)}%`;
       const emailHash = createSearchHash(search);
       whereClause = Prisma.sql`WHERE u."referCode" IS NOT NULL AND (
         u."firstName" ILIKE ${searchPattern} OR

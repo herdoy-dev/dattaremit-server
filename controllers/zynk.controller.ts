@@ -62,9 +62,8 @@ const addDepositAccountSchema = Joi.object({
 const ALLOWED_ANDROID_PACKAGES = new Set(["com.dattapay.mobile"]);
 const ALLOWED_REDIRECT_HOSTS = new Set([
   "dattaremit.com",
-  "localhost",
-  "cdn-testing.plaid.com",
   "cdn.plaid.com",
+  ...(process.env.NODE_ENV !== "production" ? ["localhost", "cdn-testing.plaid.com"] : []),
 ]);
 
 class ZynkController {
@@ -124,7 +123,11 @@ class ZynkController {
         if (!ALLOWED_REDIRECT_HOSTS.has(url.hostname)) {
           throw new AppError(400, "Invalid redirect_uri");
         }
-      } catch {
+        if (url.protocol !== "https:" && !(url.hostname === "localhost" && process.env.NODE_ENV !== "production")) {
+          throw new AppError(400, "Invalid redirect_uri: HTTPS required");
+        }
+      } catch (e) {
+        if (e instanceof AppError) throw e;
         throw new AppError(400, "Invalid redirect_uri");
       }
     }

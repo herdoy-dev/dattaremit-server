@@ -84,6 +84,12 @@ const basePrismaClient = new PrismaClient({
   },
 });
 
+// Note: firstName and lastName are intentionally NOT encrypted because they are used in:
+// - Admin search queries (Prisma `contains` with case-insensitive mode)
+// - Raw SQL queries in admin.service.ts (dashboard charts, referral stats)
+// - Encrypting these fields would require HMAC-based search indexes and rewriting all raw SQL queries.
+// Fields encrypted: email, phoneNumber, phoneNumberPrefix, dateOfBirth, nationality
+
 /**
  * Encrypt sensitive fields before saving to database
  * Refactored to reduce cognitive complexity (SonarQube S3776)
@@ -111,6 +117,7 @@ export const encryptUserData = <T extends Record<string, unknown>>(
   // Encrypt other sensitive fields using helper
   encryptField(encrypted, "phoneNumber");
   encryptField(encrypted, "phoneNumberPrefix");
+  encryptField(encrypted, "nationality");
 
   return encrypted as T;
 };
@@ -129,6 +136,7 @@ export const decryptUserData = <T>(user: T): T => {
   decryptField(decrypted, "dateOfBirth");
   decryptField(decrypted, "phoneNumber");
   decryptField(decrypted, "phoneNumberPrefix");
+  decryptField(decrypted, "nationality");
 
   return decrypted as T;
 };

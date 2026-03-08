@@ -1,6 +1,7 @@
 import { ActivityStatus, ActivityType } from "../generated/prisma/client";
 import activityLogger from "../lib/activity-logger";
 import AppError from "../lib/AppError";
+import { toPublicUser } from "../lib/dto";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
 import userRepository from "../repositories/user.repository";
 import type {
@@ -28,51 +29,65 @@ async function requireUserWithEntity(userId: string) {
 
 class ZynkService {
   async createEntity(userId: string) {
+    // Phase 1: Read and validate data outside transaction
+    const currentUser = await prismaClient.user.findUnique({
+      where: { id: userId },
+      include: { addresses: true },
+    });
+
+    if (!currentUser) {
+      throw new AppError(404, "User not found");
+    }
+
+    // If entity already exists, return the user as-is (idempotent)
+    if (currentUser.zynkEntityId) {
+      return toPublicUser(decryptUserData(currentUser));
+    }
+
+    if (!currentUser.addresses || currentUser.addresses.length === 0) {
+      throw new AppError(
+        400,
+        "At least one address is required to create entity",
+      );
+    }
+
+    const addresses = currentUser.addresses;
+
+    const entityData: ZynkEntityData = {
+      email: currentUser.email,
+      firstName: currentUser.firstName,
+      lastName: currentUser.lastName ? currentUser.lastName : " ",
+      phoneNumberPrefix: currentUser.phoneNumberPrefix.replace("+", ""),
+      phoneNumber: currentUser.phoneNumber,
+      dateOfBirth: currentUser.dateOfBirth,
+      nationality: addresses[0]?.country as string,
+      permanentAddress: {
+        addressLine1: addresses[0]?.addressLine1 as string,
+        addressLine2: addresses[0]?.addressLine2 as string,
+        locality: addresses[0]?.state as string,
+        city: addresses[0]?.city as string,
+        state: addresses[0]?.state as string,
+        country: addresses[0]?.country as string,
+        postalCode: addresses[0]?.postalCode as string,
+      },
+    };
+
+    // Call external API outside transaction
+    const response = await zynkRepository.createEntity(entityData);
+
+    // Phase 2: Short DB-only transaction with optimistic check
     const updatedUser = await prismaClient.$transaction(async (tx) => {
-      const currentUser = await tx.user.findUnique({
+      const freshUser = await tx.user.findUnique({
         where: { id: userId },
-        include: { addresses: true },
       });
 
-      if (!currentUser) {
-        throw new AppError(404, "User not found");
+      // Optimistic check: another request may have set entityId concurrently
+      if (freshUser?.zynkEntityId) {
+        return tx.user.findUnique({
+          where: { id: userId },
+          include: { addresses: true },
+        });
       }
-
-      // If entity already exists, return the user as-is (idempotent)
-      if (currentUser.zynkEntityId) {
-        return currentUser;
-      }
-
-      if (!currentUser.addresses || currentUser.addresses.length === 0) {
-        throw new AppError(
-          400,
-          "At least one address is required to create entity",
-        );
-      }
-
-      const addresses = currentUser.addresses;
-
-      const entityData: ZynkEntityData = {
-        email: currentUser.email,
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName ? currentUser.lastName : " ",
-        phoneNumberPrefix: currentUser.phoneNumberPrefix.replace("+", ""),
-        phoneNumber: currentUser.phoneNumber,
-        dateOfBirth: currentUser.dateOfBirth,
-        nationality: addresses[0]?.country as string,
-        permanentAddress: {
-          addressLine1: addresses[0]?.addressLine1 as string,
-          addressLine2: addresses[0]?.addressLine2 as string,
-          locality: addresses[0]?.state as string,
-          city: addresses[0]?.city as string,
-          state: addresses[0]?.state as string,
-          country: addresses[0]?.country as string,
-          postalCode: addresses[0]?.postalCode as string,
-        },
-      };
-
-      // Call external API inside the transaction
-      const response = await zynkRepository.createEntity(entityData);
 
       return tx.user.update({
         where: { id: userId },
@@ -82,11 +97,9 @@ class ZynkService {
         },
         include: { addresses: true },
       });
-    }, {
-      isolationLevel: "Serializable",
     });
 
-    return decryptUserData(updatedUser);
+    return toPublicUser(decryptUserData(updatedUser!));
   }
 
   async startKyc(userId: string) {
@@ -124,115 +137,129 @@ class ZynkService {
   }
 
   async addExternalAccount(userId: string, data: ZynkAddExternalAccountData) {
-    const updatedUser = await prismaClient.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new AppError(404, "User not found");
-      }
+    // Phase 1: Read and validate data outside transaction
+    const user = await prismaClient.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
 
-      if (!user.zynkEntityId) {
-        throw new AppError(
-          400,
-          "User does not have a Zynk entity. Create entity first.",
-        );
-      }
-
-      // Enforce payment rail eligibility
-      const resolvedPaymentRail =
-        data.paymentRail === "ach_push" && user.achPushEnabled
-          ? "ach_push"
-          : "ach_pull";
-
-      // Call external API inside the serializable transaction
-      const addResponse = await zynkRepository.addExternalAccount(
-        user.zynkEntityId,
-        { ...data, paymentRail: resolvedPaymentRail },
+    if (!user.zynkEntityId) {
+      throw new AppError(
+        400,
+        "User does not have a Zynk entity. Create entity first.",
       );
+    }
 
-      const externalAccountId = addResponse.data.accountId;
+    // Enforce payment rail eligibility
+    const resolvedPaymentRail =
+      data.paymentRail === "ach_push" && user.achPushEnabled
+        ? "ach_push"
+        : "ach_pull";
 
-      const updated = await tx.user.update({
+    // Call external APIs outside transaction
+    const addResponse = await zynkRepository.addExternalAccount(
+      user.zynkEntityId,
+      { ...data, paymentRail: resolvedPaymentRail },
+    );
+
+    const externalAccountId = addResponse.data.accountId;
+
+    await zynkRepository.enableExternalAccount(
+      user.zynkEntityId,
+      externalAccountId,
+    );
+
+    // Phase 2: Short DB-only transaction with optimistic check
+    const updatedUser = await prismaClient.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({ where: { id: userId } });
+
+      // Optimistic check: another request may have set externalAccountId concurrently
+      if (freshUser?.zynkExternalAccountId) {
+        return tx.user.findUnique({
+          where: { id: userId },
+          include: { addresses: true },
+        });
+      }
+
+      return tx.user.update({
         where: { id: userId },
         data: { zynkExternalAccountId: externalAccountId },
         include: { addresses: true },
       });
-
-      // Activate the external account
-      await zynkRepository.enableExternalAccount(
-        user.zynkEntityId,
-        externalAccountId,
-      );
-
-      await activityLogger.logActivity({
-        userId,
-        type: ActivityType.ACCOUNT_ACTIVATED,
-        status: ActivityStatus.COMPLETE,
-        description: "External account added and enabled",
-        metadata: {
-          entityId: user.zynkEntityId,
-          externalAccountId,
-        },
-      });
-
-      return updated;
-    }, {
-      isolationLevel: "Serializable",
     });
 
-    return decryptUserData(updatedUser);
+    await activityLogger.logActivity({
+      userId,
+      type: ActivityType.ACCOUNT_ACTIVATED,
+      status: ActivityStatus.COMPLETE,
+      description: "External account added and enabled",
+      metadata: {
+        entityId: user.zynkEntityId,
+        externalAccountId,
+      },
+    });
+
+    return toPublicUser(decryptUserData(updatedUser!));
   }
 
   async addDepositAccount(userId: string, data: ZynkAddDepositAccountData) {
-    const updatedUser = await prismaClient.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new AppError(404, "User not found");
-      }
+    // Phase 1: Read and validate data outside transaction
+    const user = await prismaClient.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
 
-      if (!user.zynkEntityId) {
-        throw new AppError(
-          400,
-          "User does not have a Zynk entity. Create entity first.",
-        );
-      }
-
-      // Call external API inside the serializable transaction
-      const addResponse = await zynkRepository.addDepositAccount(
-        user.zynkEntityId,
-        data,
+    if (!user.zynkEntityId) {
+      throw new AppError(
+        400,
+        "User does not have a Zynk entity. Create entity first.",
       );
+    }
 
-      const depositAccountId = addResponse.data.accountId;
+    // Call external APIs outside transaction
+    const addResponse = await zynkRepository.addDepositAccount(
+      user.zynkEntityId,
+      data,
+    );
 
-      const updated = await tx.user.update({
+    const depositAccountId = addResponse.data.accountId;
+
+    await zynkRepository.enableExternalAccount(
+      user.zynkEntityId,
+      depositAccountId,
+    );
+
+    // Phase 2: Short DB-only transaction with optimistic check
+    const updatedUser = await prismaClient.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({ where: { id: userId } });
+
+      // Optimistic check: another request may have set depositAccountId concurrently
+      if (freshUser?.zynkDepositAccountId) {
+        return tx.user.findUnique({
+          where: { id: userId },
+          include: { addresses: true },
+        });
+      }
+
+      return tx.user.update({
         where: { id: userId },
         data: { zynkDepositAccountId: depositAccountId },
         include: { addresses: true },
       });
-
-      // Activate the deposit account
-      await zynkRepository.enableExternalAccount(
-        user.zynkEntityId,
-        depositAccountId,
-      );
-
-      await activityLogger.logActivity({
-        userId,
-        type: ActivityType.ACCOUNT_ACTIVATED,
-        status: ActivityStatus.COMPLETE,
-        description: "Deposit account added and enabled",
-        metadata: {
-          entityId: user.zynkEntityId,
-          depositAccountId,
-        },
-      });
-
-      return updated;
-    }, {
-      isolationLevel: "Serializable",
     });
 
-    return decryptUserData(updatedUser);
+    await activityLogger.logActivity({
+      userId,
+      type: ActivityType.ACCOUNT_ACTIVATED,
+      status: ActivityStatus.COMPLETE,
+      description: "Deposit account added and enabled",
+      metadata: {
+        entityId: user.zynkEntityId,
+        depositAccountId,
+      },
+    });
+
+    return toPublicUser(decryptUserData(updatedUser!));
   }
 
   async generatePlaidLinkToken(

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import APIResponse from "../lib/APIResponse";
+import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
 import type { AuthRequest } from "../middlewares/auth";
 import userService from "../services/user.service";
@@ -28,6 +29,9 @@ class ReferralController {
 
   getTrackerStats = asyncHandler(async (req: Request, res: Response) => {
     const { referCode } = req.params;
+    if (!referCode || !/^[A-Z0-9-]{1,50}$/i.test(referCode)) {
+      throw new AppError(400, "Invalid referral code format");
+    }
     const result = await userService.getReferralTrackerStats(
       referCode.trim().toUpperCase()
     );
