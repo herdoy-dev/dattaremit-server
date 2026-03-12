@@ -13,6 +13,7 @@ class AccountService {
       user: user ? toPublicUser(user) : null,
       addresses,
       accountStatus: user?.accountStatus ?? "INITIAL",
+      hasBankAccount: !!user?.zynkExternalAccountId,
     };
   }
 }
