@@ -9,8 +9,7 @@ const REQUIRED_ENV_VARS = [
   "ZYNK_API_BASE_URL",
   "ZYNK_API_TOKEN",
   "ZYNK_WEBHOOK_SECRET",
-  "GOOGLE_EMAIL",
-  "GOOGLE_APP_PASSWORD",
+  "RESEND_API_KEY",
 ] as const;
 
 const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);

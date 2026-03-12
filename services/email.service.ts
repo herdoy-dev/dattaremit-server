@@ -1,15 +1,9 @@
-import * as nodemailer from "nodemailer";
+import { Resend } from "resend";
 import logger from "../lib/logger";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.GOOGLE_EMAIL || "noreply@dattapay.com",
-    pass: process.env.GOOGLE_APP_PASSWORD,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const FROM_EMAIL = "Dattapay <noreply@dattaremit.com>";
 
 interface EmailOptions {
   to: string;
@@ -19,14 +13,12 @@ interface EmailOptions {
 
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   try {
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: `"Dattapay" <${process.env.GOOGLE_EMAIL || "noreply@dattapay.com"}>`,
+    await resend.emails.send({
+      from: FROM_EMAIL,
       to: options.to,
       subject: options.subject,
       html: options.html,
-    };
-
-    await transporter.sendMail(mailOptions);
+    });
     return true;
   } catch (error) {
     const atIndex = options.to.indexOf("@");
