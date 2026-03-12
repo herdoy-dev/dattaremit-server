@@ -93,6 +93,48 @@ jest.mock("../../repositories/address.repository", () => ({
   },
 }));
 
+jest.mock("../../repositories/zynk.repository", () => ({
+  __esModule: true,
+  default: {
+    createEntity: jest.fn(),
+    startKyc: jest.fn(),
+    getKycStatus: jest.fn(),
+    addExternalAccount: jest.fn(),
+    enableExternalAccount: jest.fn(),
+    addDepositAccount: jest.fn(),
+    generatePlaidLinkToken: jest.fn(),
+  },
+}));
+
+const mockTx = {
+  address: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    findMany: jest.fn(),
+  },
+  user: {
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+};
+
+jest.mock("../../lib/prisma-client", () => ({
+  __esModule: true,
+  default: {
+    $transaction: jest.fn((cb: (tx: typeof mockTx) => unknown) => cb(mockTx)),
+    idempotencyKey: {
+      findUnique: jest.fn(),
+      deleteMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+  },
+  decryptNestedUser: jest.fn((obj: unknown) => obj),
+  decryptUserData: jest.fn((obj: unknown) => obj),
+  encryptUserData: jest.fn((obj: unknown) => obj),
+}));
+
 // Typed mock references
 export const mockUserService = require("../../services/user.service").default;
 export const mockAddressService = require("../../services/address.service").default;
@@ -102,3 +144,6 @@ export const mockZynkService = require("../../services/zynk.service").default;
 export const mockExchangeRateService = require("../../services/exchange-rate.service").default;
 export const mockUserRepository = require("../../repositories/user.repository").default;
 export const mockAddressRepository = require("../../repositories/address.repository").default;
+export const mockZynkRepository = require("../../repositories/zynk.repository").default;
+export const mockPrismaClient = require("../../lib/prisma-client").default;
+export { mockTx };

@@ -1,4 +1,4 @@
-import { mockUserService, mockAddressService, mockZynkService, mockUserRepository } from "./helpers/service-mocks";
+import { mockUserService, mockZynkService, mockUserRepository, mockZynkRepository, mockTx } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
 import { AUTH_TOKEN } from "./helpers/auth";
@@ -10,14 +10,24 @@ const app = createTestApp();
 describe("Onboarding Endpoints", () => {
   beforeEach(() => {
     setupAuthOnly();
+    jest.clearAllMocks();
   });
 
   describe("POST /api/onboarding/address", () => {
     it("should submit address and create entity", async () => {
       mockUserService.getByClerkUserId.mockResolvedValueOnce(mockUser);
-      mockAddressService.create.mockResolvedValueOnce(mockAddress);
-      mockZynkService.createEntity.mockResolvedValueOnce(undefined);
-      mockUserRepository.findById.mockResolvedValueOnce({
+
+      // Transaction mocks
+      mockTx.address.findUnique.mockResolvedValueOnce(null); // no existing address
+      mockTx.address.create.mockResolvedValueOnce({ ...mockAddress, user: mockUser });
+      mockTx.user.findUnique.mockResolvedValueOnce({
+        ...mockUser,
+        addresses: [mockAddress],
+      });
+      mockZynkRepository.createEntity.mockResolvedValueOnce({
+        data: { entityId: "zynk_entity_123", message: "Entity created" },
+      });
+      mockTx.user.update.mockResolvedValueOnce({
         ...mockUser,
         zynkEntityId: "zynk_entity_123",
       });
@@ -36,8 +46,10 @@ describe("Onboarding Endpoints", () => {
     it("should skip entity creation if already exists", async () => {
       const userWithEntity = { ...mockUser, zynkEntityId: "existing_entity" };
       mockUserService.getByClerkUserId.mockResolvedValueOnce(userWithEntity);
-      mockAddressService.create.mockResolvedValueOnce(mockAddress);
-      mockUserRepository.findById.mockResolvedValueOnce(userWithEntity);
+
+      // Transaction mocks
+      mockTx.address.findUnique.mockResolvedValueOnce(null);
+      mockTx.address.create.mockResolvedValueOnce({ ...mockAddress, user: userWithEntity });
 
       const res = await request(app)
         .post("/api/onboarding/address")
@@ -45,7 +57,7 @@ describe("Onboarding Endpoints", () => {
         .send(validCreateAddressBody);
 
       expect(res.status).toBe(201);
-      expect(mockZynkService.createEntity).not.toHaveBeenCalled();
+      expect(mockZynkRepository.createEntity).not.toHaveBeenCalled();
     });
 
     it("should return 400 with invalid address data", async () => {

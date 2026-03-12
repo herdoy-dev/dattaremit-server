@@ -2,11 +2,13 @@ import type { Response } from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
+import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
 import validate from "../lib/validate";
 import type { AuthRequest } from "../middlewares/auth";
 import userRepository from "../repositories/user.repository";
+import zynkRepository from "../repositories/zynk.repository";
+import type { ZynkEntityData } from "../repositories/zynk.repository";
 import zynkService from "../services/zynk.service";
-import addressService from "../services/address.service";
 import { createAddressSchema } from "../schemas/address.schema";
 import { sendKycEmail } from "../services/email.service";
 import logger from "../lib/logger";
@@ -15,22 +17,87 @@ class OnboardingController {
   submitAddress = asyncHandler(async (req: AuthRequest, res: Response) => {
     const dbUser = req.user;
 
-    // Step 1: Validate and save the address
     const value = validate(createAddressSchema, { ...req.body, userId: dbUser.id });
 
-    const address = await addressService.create(value);
+    // Wrap address save and entity creation in a single transaction
+    // so the address is rolled back if entity creation fails
+    const result = await prismaClient.$transaction(async (tx) => {
+      // Step 1: Save address (upsert by userId + type)
+      const existing = await tx.address.findUnique({
+        where: { userId_type: { userId: value.userId, type: value.type } },
+      });
 
-    // Step 2: Create Zynk entity if not already created
-    if (!dbUser.zynkEntityId) {
-      await zynkService.createEntity(dbUser.id);
-    }
+      let address;
+      if (existing) {
+        const { userId, type, ...updateFields } = value;
+        address = await tx.address.update({
+          where: { id: existing.id },
+          data: updateFields,
+          include: { user: true },
+        });
+      } else {
+        address = await tx.address.create({
+          data: value,
+          include: { user: true },
+        });
+      }
 
-    const updatedUser = await userRepository.findById(dbUser.id);
+      // Step 2: Create Zynk entity if not already created
+      let entityCreated = !!dbUser.zynkEntityId;
+      if (!dbUser.zynkEntityId) {
+        const user = await tx.user.findUnique({
+          where: { id: dbUser.id },
+          include: { addresses: true },
+        });
+
+        if (!user || !user.addresses || user.addresses.length === 0) {
+          throw new AppError(400, "At least one address is required to create entity");
+        }
+
+        const addresses = user.addresses;
+        const entityData: ZynkEntityData = {
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName ? user.lastName : " ",
+          phoneNumberPrefix: user.phoneNumberPrefix.replace("+", ""),
+          phoneNumber: user.phoneNumber,
+          dateOfBirth: user.dateOfBirth,
+          nationality: addresses[0]?.country as string,
+          permanentAddress: {
+            addressLine1: addresses[0]?.addressLine1 as string,
+            addressLine2: addresses[0]?.addressLine2 as string,
+            locality: addresses[0]?.state as string,
+            city: addresses[0]?.city as string,
+            state: addresses[0]?.state as string,
+            country: addresses[0]?.country as string,
+            postalCode: addresses[0]?.postalCode as string,
+          },
+        };
+
+        // External API call — if this fails, the entire transaction rolls back
+        const response = await zynkRepository.createEntity(entityData);
+
+        await tx.user.update({
+          where: { id: dbUser.id },
+          data: {
+            zynkEntityId: response.data.entityId,
+            accountStatus: "PENDING",
+          },
+        });
+
+        entityCreated = true;
+      }
+
+      return {
+        address: decryptNestedUser(address as { user?: unknown }),
+        entityCreated,
+      };
+    });
 
     res.status(201).json(
       new APIResponse(true, "Address saved and entity created", {
-        address,
-        entityCreated: !!updatedUser?.zynkEntityId,
+        address: result.address,
+        entityCreated: result.entityCreated,
       })
     );
   });
