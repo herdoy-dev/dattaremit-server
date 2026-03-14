@@ -57,7 +57,7 @@ class ZynkService {
       email: currentUser.email,
       firstName: currentUser.firstName,
       lastName: currentUser.lastName ? currentUser.lastName : " ",
-      phoneNumberPrefix: currentUser.phoneNumberPrefix,
+      phoneNumberPrefix: currentUser.phoneNumberPrefix.replace("+", ""),
       phoneNumber: currentUser.phoneNumber,
       dateOfBirth: currentUser.dateOfBirth,
       nationality: addresses[0]?.country as string,
