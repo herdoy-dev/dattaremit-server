@@ -213,10 +213,12 @@ describe("Zynk Endpoints", () => {
         .set("idempotency-key", "test-idempotency-key-12345")
         .send({
           bankName: "SBI",
-          accountHolderName: "John Doe",
+          accountName: "John Doe",
           accountNumber: "1234567890",
-          routingNumber: "SBIN0001234",
-          type: "SAVINGS",
+          ifsc: "SBIN0001234",
+          branchName: "Main Branch",
+          bankAccountType: "SAVINGS",
+          phoneNumber: "+919838387750",
         });
 
       expect(res.status).toBe(403);
@@ -233,10 +235,12 @@ describe("Zynk Endpoints", () => {
         .set("idempotency-key", "test-idempotency-key-12345")
         .send({
           bankName: "SBI",
-          accountHolderName: "John Doe",
+          accountName: "John Doe",
           accountNumber: "1234567890",
-          routingNumber: "invalid",
-          type: "SAVINGS",
+          ifsc: "invalid",
+          branchName: "Main Branch",
+          bankAccountType: "SAVINGS",
+          phoneNumber: "+919838387750",
         });
 
       expect(res.status).toBe(400);
@@ -253,10 +257,12 @@ describe("Zynk Endpoints", () => {
         .set("idempotency-key", "test-idempotency-key-12345")
         .send({
           bankName: "SBI",
-          accountHolderName: "John Doe",
+          accountName: "John Doe",
           accountNumber: "1234567890",
-          routingNumber: "SBIN0001234",
-          type: "INVALID",
+          ifsc: "SBIN0001234",
+          branchName: "Main Branch",
+          bankAccountType: "INVALID",
+          phoneNumber: "+919838387750",
         });
 
       expect(res.status).toBe(400);
@@ -274,10 +280,12 @@ describe("Zynk Endpoints", () => {
         .set("idempotency-key", "test-idempotency-key-12345")
         .send({
           bankName: "SBI",
-          accountHolderName: "John Doe",
+          accountName: "John Doe",
           accountNumber: "1234567890",
-          routingNumber: "SBIN0001234",
-          type: "SAVINGS",
+          ifsc: "SBIN0001234",
+          branchName: "Main Branch",
+          bankAccountType: "SAVINGS",
+          phoneNumber: "+919838387750",
         });
 
       expect(res.status).toBe(201);

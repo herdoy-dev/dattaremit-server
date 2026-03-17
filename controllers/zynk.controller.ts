@@ -36,7 +36,7 @@ const addDepositAccountSchema = Joi.object({
     "string.empty": "Bank name cannot be empty",
     "any.required": "Bank name is required",
   }),
-  accountHolderName: Joi.string().trim().min(1).required().messages({
+  accountName: Joi.string().trim().min(1).required().messages({
     "string.empty": "Account holder name cannot be empty",
     "any.required": "Account holder name is required",
   }),
@@ -44,18 +44,26 @@ const addDepositAccountSchema = Joi.object({
     "string.empty": "Account number cannot be empty",
     "any.required": "Account number is required",
   }),
-  routingNumber: Joi.string()
+  ifsc: Joi.string()
     .trim()
     .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
     .required()
     .messages({
       "string.pattern.base":
-        "Routing number must be in IFSC format (e.g. SBIN0001234)",
-      "any.required": "Routing number is required",
+        "IFSC must be in valid format (e.g. SBIN0001234)",
+      "any.required": "IFSC code is required",
     }),
-  type: Joi.string().valid("SAVINGS", "CURRENT").required().messages({
+  branchName: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Branch name cannot be empty",
+    "any.required": "Branch name is required",
+  }),
+  bankAccountType: Joi.string().valid("SAVINGS", "CURRENT").required().messages({
     "any.only": "Account type must be SAVINGS or CURRENT",
     "any.required": "Account type is required",
+  }),
+  phoneNumber: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Phone number cannot be empty",
+    "any.required": "Phone number is required",
   }),
 });
 

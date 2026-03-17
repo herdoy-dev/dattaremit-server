@@ -100,10 +100,12 @@ interface ZynkAddExternalAccountData {
 
 interface ZynkAddDepositAccountData {
   bankName: string;
-  accountHolderName: string;
+  accountName: string;
   accountNumber: string;
-  routingNumber: string;
-  type: string; // "SAVINGS" or "CURRENT"
+  ifsc: string;
+  branchName: string;
+  bankAccountType: string; // "SAVINGS" or "CURRENT"
+  phoneNumber: string;
 }
 
 interface ZynkAddExternalAccountResponse {
@@ -255,13 +257,18 @@ class ZynkRepository {
           jurisdictionID: jurisdictionId,
           type: "deposit",
           ownershipType: "first_party",
-          bankAccountType: bankAccountTypeMap[data.type] || "saving",
+          bankAccountType: bankAccountTypeMap[data.bankAccountType] || "saving",
           account: {
-            bankName: data.bankName,
-            accountHolderName: data.accountHolderName,
-            accountNumber: data.accountNumber,
-            routingNumber: data.routingNumber,
-            type: data.type,
+            bankDetails: {
+              accountNumber: data.accountNumber,
+              ifsc: data.ifsc,
+              accountName: data.accountName,
+              bankName: data.bankName,
+              branchName: data.branchName,
+              bankCountry: "IN",
+              bankAccountType: data.bankAccountType === "SAVINGS" ? "Savings" : "Current",
+              phoneNumber: data.phoneNumber,
+            },
           },
         },
       );
