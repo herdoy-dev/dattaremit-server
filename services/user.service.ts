@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
 import prismaClient, {
   encryptUserData,
@@ -14,6 +15,9 @@ class UserService {
   }
 
   async create(data: CreateUserInput) {
+    return Sentry.startSpan(
+      { name: "user.create", op: "db.transaction", attributes: { "user.has_referral": !!data.referredByCode } },
+      async () => {
     // Encrypt data and prepare for database (exclude referredByCode from encryption)
     const { referredByCode, ...dataToEncrypt } = data;
     const encryptedData = encryptUserData({
@@ -75,6 +79,8 @@ class UserService {
 
       return decryptUserData(result);
     });
+      },
+    );
   }
 
   async update(id: string, data: UpdateUserInput) {

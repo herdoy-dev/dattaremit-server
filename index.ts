@@ -1,4 +1,7 @@
+import './instrument'
 import dotenv from "dotenv";
+import * as Sentry from "@sentry/node";
+
 dotenv.config();
 
 // ---------- Startup env validation ----------
@@ -59,7 +62,10 @@ const corsOrigins: string[] = [
 if (process.env.NODE_ENV !== "production") {
   corsOrigins.push("http://localhost:3000", "http://localhost:3001");
 }
-app.use(cors({ origin: corsOrigins }));
+app.use(cors({
+  origin: corsOrigins,
+  exposedHeaders: ["X-Request-Id", "baggage", "sentry-trace"],
+}));
 
 app.use(
   helmet({
@@ -122,6 +128,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
+
 app.get("/health", async (_req, res) => {
   try {
     await prismaClient.$queryRaw`SELECT 1`;
@@ -137,9 +144,15 @@ app.use("/api", exchangeRate);
 app.use("/api", referralPublic);
 app.use("/api/admin", adminRateLimit, adminRouter);
 app.use("/api", auth, router);
+
+// Sentry error handler must be after routes but before custom error handler
+Sentry.setupExpressErrorHandler(app);
+
 app.use(error);
 
 const port = process.env.PORT || 5000;
+
+
 
 const server = app.listen(port, () =>
   logger.info(`Server running on http://localhost:${port}`),
@@ -167,6 +180,7 @@ async function shutdown(reason: string, exitCode: number = 0) {
 
   server.close(async () => {
     try {
+      await Sentry.close(2000);
       await prismaClient.$disconnect();
       await logAndFlush("error", "Server closed gracefully");
     } catch (err) {

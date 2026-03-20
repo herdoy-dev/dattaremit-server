@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Resend } from "resend";
 import logger from "../lib/logger";
 
@@ -12,22 +13,28 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
-  try {
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    });
-    return true;
-  } catch (error) {
-    const atIndex = options.to.indexOf("@");
-    const masked = atIndex > 2
-      ? options.to.slice(0, 2) + "***" + options.to.slice(atIndex)
-      : "***";
-    logger.error(`Failed to send email to ${masked}`, { error });
-    return false;
-  }
+  return Sentry.startSpan(
+    { name: "email.send", op: "http.client", attributes: { "email.subject": options.subject } },
+    async () => {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        });
+        return true;
+      } catch (error) {
+        const atIndex = options.to.indexOf("@");
+        const masked = atIndex > 2
+          ? options.to.slice(0, 2) + "***" + options.to.slice(atIndex)
+          : "***";
+        logger.error(`Failed to send email to ${masked}`, { error });
+        Sentry.captureException(error);
+        return false;
+      }
+    },
+  );
 };
 
 function escapeHtml(str: string): string {

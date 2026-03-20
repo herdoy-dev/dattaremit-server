@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import * as Sentry from "@sentry/node";
 import type { AuthRequest } from "./auth";
 import userService from "../services/user.service";
 import AppError from "../lib/AppError";
@@ -13,6 +14,8 @@ const dbUser: RequestHandler = async (req, res, next) => {
     }
 
     authReq.user = user;
+    Sentry.getCurrentScope().setTag("user.db_id", String(user.id));
+    Sentry.getCurrentScope().setTag("user.account_status", user.accountStatus);
     next();
   } catch (error) {
     next(error);

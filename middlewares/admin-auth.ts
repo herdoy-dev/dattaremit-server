@@ -1,5 +1,6 @@
 import { verifyToken } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
+import * as Sentry from "@sentry/node";
 import type { AuthRequest } from "./auth";
 import AppError from "../lib/AppError";
 import { handleAuthError } from "../lib/auth-error-handler";
@@ -30,6 +31,7 @@ export default async function adminAuth(
     }
 
     (req as AuthRequest).user = user;
+    Sentry.setUser({ id: decoded.sub, username: String(user.id) });
     next();
   } catch (error) {
     handleAuthError(error, next);

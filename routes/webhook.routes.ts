@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import express from "express";
@@ -69,6 +70,9 @@ function verifyWebhookSignature(
 router.post(
   "/webhook",
   async (req: Request, res: Response, next: NextFunction) => {
+    return Sentry.startSpan(
+      { name: "webhook.kyc", op: "webhook" },
+      async (span) => {
     try {
       const signatureHeader = req.headers["z-webhook-signature"];
       const secret = process.env.ZYNK_WEBHOOK_SECRET;
@@ -115,6 +119,8 @@ router.post(
       }
 
       const body: KYCEvent = value;
+      span.setAttribute("eventCategory", body.eventCategory);
+      span.setAttribute("eventStatus", body.eventStatus);
       if (body.eventCategory !== "kyc") {
         return res.status(200).send(new APIResponse(true, "Event ignored"));
       }
@@ -156,6 +162,8 @@ router.post(
     } catch (error) {
       return next(error);
     }
+      },
+    );
   }
 );
 

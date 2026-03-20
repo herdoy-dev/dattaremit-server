@@ -33,6 +33,8 @@
     "@noble/hashes": "^2.0.1",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@prisma/instrumentation": "^7.5.0",
+    "@sentry/node": "^10.43.0",
     "@solana/web3.js": "^1.98.4",
     "@turnkey/crypto": "^2.8.8",
     "axios": "^1.13.2",

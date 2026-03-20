@@ -17,6 +17,13 @@ if (dsn) {
 
     integrations: [Sentry.prismaIntegration()],
 
+    // Only propagate trace headers to our own domains — not to
+    // Zynk, Resend, exchange-rate API, Clerk, or any other third party.
+    tracePropagationTargets: [
+      /^https:\/\/(app|admin|refer)\.dattaremit\.com/,
+      /^http:\/\/localhost/,
+    ],
+
     beforeSend(event) {
       if (event.request?.data) {
         event.request.data = maskPii(event.request.data) as typeof event.request.data;
@@ -33,6 +40,18 @@ if (dsn) {
       if (event.exception?.values) {
         for (const ex of event.exception.values) {
           if (ex.value) ex.value = maskPii(ex.value) as string;
+        }
+      }
+      return event;
+    },
+
+    beforeSendTransaction(event) {
+      if (event.extra) {
+        event.extra = maskPii(event.extra) as typeof event.extra;
+      }
+      for (const span of event.spans || []) {
+        if (span.data) {
+          span.data = maskPii(span.data) as typeof span.data;
         }
       }
       return event;

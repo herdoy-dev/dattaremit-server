@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { verifyToken } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
 import type { User } from "../generated/prisma/client";
@@ -23,6 +24,8 @@ export default async function auth(
     const decoded = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY as string,
     });
+
+    Sentry.setUser({ id: decoded.sub });
 
     (req as AuthRequest).user = {
       clerkUserId: decoded.sub,
