@@ -76,6 +76,34 @@ jest.mock("../../services/exchange-rate.service", () => ({
   },
 }));
 
+jest.mock("../../services/notification.service", () => ({
+  __esModule: true,
+  default: {
+    create: jest.fn(),
+    getByUserId: jest.fn(),
+    getUnreadCount: jest.fn(),
+    markAsRead: jest.fn(),
+    markAllAsRead: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/device.service", () => ({
+  __esModule: true,
+  default: {
+    register: jest.fn(),
+    unregister: jest.fn(),
+    getUserDevices: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/push.service", () => ({
+  __esModule: true,
+  default: {
+    sendToUser: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 jest.mock("../../repositories/user.repository", () => ({
   __esModule: true,
   default: {
@@ -145,5 +173,8 @@ export const mockExchangeRateService = require("../../services/exchange-rate.ser
 export const mockUserRepository = require("../../repositories/user.repository").default;
 export const mockAddressRepository = require("../../repositories/address.repository").default;
 export const mockZynkRepository = require("../../repositories/zynk.repository").default;
+export const mockNotificationService = require("../../services/notification.service").default;
+export const mockDeviceService = require("../../services/device.service").default;
+export const mockPushService = require("../../services/push.service").default;
 export const mockPrismaClient = require("../../lib/prisma-client").default;
 export { mockTx };

@@ -14,6 +14,17 @@ const prismaEnums = {
   },
   ActivityStatus: { PENDING: "PENDING", FAILED: "FAILED", COMPLETE: "COMPLETE" },
   AddressType: { PRESENT: "PRESENT", PERMANENT: "PERMANENT" },
+  NotificationType: {
+    KYC_APPROVED: "KYC_APPROVED", KYC_REJECTED: "KYC_REJECTED",
+    KYC_FAILED: "KYC_FAILED", KYC_PENDING: "KYC_PENDING",
+    ACCOUNT_ACTIVATED: "ACCOUNT_ACTIVATED",
+    TRANSACTION_INITIATED: "TRANSACTION_INITIATED",
+    TRANSACTION_COMPLETED: "TRANSACTION_COMPLETED",
+    TRANSACTION_FAILED: "TRANSACTION_FAILED",
+    PROMOTIONAL: "PROMOTIONAL", SYSTEM_ALERT: "SYSTEM_ALERT",
+    REFERRAL_BONUS: "REFERRAL_BONUS",
+  },
+  DevicePlatform: { IOS: "IOS", ANDROID: "ANDROID" },
 };
 
 jest.mock("../../generated/prisma/client", () => ({
@@ -110,6 +121,29 @@ jest.mock("../../lib/activity-logger", () => ({
   __esModule: true,
   default: {
     logActivity: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock("../../lib/notification-logger", () => ({
+  __esModule: true,
+  default: {
+    notify: jest.fn().mockResolvedValue({}),
+  },
+}));
+
+jest.mock("expo-server-sdk", () => ({
+  __esModule: true,
+  Expo: jest.fn().mockImplementation(() => ({
+    chunkPushNotifications: jest.fn().mockReturnValue([]),
+    sendPushNotificationsAsync: jest.fn().mockResolvedValue([]),
+  })),
+}));
+
+jest.mock("../../lib/expo-client", () => ({
+  __esModule: true,
+  default: {
+    chunkPushNotifications: jest.fn().mockReturnValue([]),
+    sendPushNotificationsAsync: jest.fn().mockResolvedValue([]),
   },
 }));
 

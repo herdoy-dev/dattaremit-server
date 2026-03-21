@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
-import { ActivityStatus, ActivityType } from "../generated/prisma/client";
+import { ActivityStatus, ActivityType, NotificationType } from "../generated/prisma/client";
 import activityLogger from "../lib/activity-logger";
+import notificationLogger from "../lib/notification-logger";
 import AppError from "../lib/AppError";
 import { toPublicUser } from "../lib/dto";
 import prismaClient, { decryptUserData } from "../lib/prisma-client";
@@ -133,6 +134,12 @@ class ZynkService {
           description: "KYC started",
           metadata: { entityId: user.zynkEntityId },
         });
+        notificationLogger.notify({
+          userId,
+          type: NotificationType.KYC_PENDING,
+          title: "KYC In Progress",
+          body: "Your identity verification has been submitted. We'll notify you once it's reviewed.",
+        });
 
         return response.data;
       },
@@ -217,6 +224,12 @@ class ZynkService {
             externalAccountId,
           },
         });
+        notificationLogger.notify({
+          userId,
+          type: NotificationType.ACCOUNT_ACTIVATED,
+          title: "Bank Account Linked",
+          body: "Your US bank account has been successfully linked.",
+        });
 
         return toPublicUser(decryptUserData(updatedUser!));
       },
@@ -281,6 +294,12 @@ class ZynkService {
             entityId: user.zynkEntityId,
             depositAccountId,
           },
+        });
+        notificationLogger.notify({
+          userId,
+          type: NotificationType.ACCOUNT_ACTIVATED,
+          title: "Bank Account Linked",
+          body: "Your Indian bank account has been successfully linked.",
         });
 
         return toPublicUser(decryptUserData(updatedUser!));

@@ -31,6 +31,8 @@ model User {
   achPushEnabled  Boolean       @default(false)
   addresses     Address[]
   activities    Activity[]
+  notifications Notification[]
+  devices       UserDevice[]
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
 
@@ -164,4 +166,59 @@ model IdempotencyKey {
   @@unique([userId, operation, key])
   @@index([expiresAt])
   @@map("idempotency_keys")
+}
+
+enum NotificationType {
+  KYC_APPROVED
+  KYC_REJECTED
+  KYC_FAILED
+  KYC_PENDING
+  ACCOUNT_ACTIVATED
+  TRANSACTION_INITIATED
+  TRANSACTION_COMPLETED
+  TRANSACTION_FAILED
+  PROMOTIONAL
+  SYSTEM_ALERT
+  REFERRAL_BONUS
+
+  @@map("notification_type")
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+
+  @@map("device_platform")
+}
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  user       User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  type       NotificationType
+  title      String           @db.VarChar(255)
+  body       String           @db.VarChar(1000)
+  metadata   Json?
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  created_at DateTime         @default(now())
+
+  @@index([userId, created_at(sort: Desc)])
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model UserDevice {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @db.Uuid
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  platform      DevicePlatform
+  expoPushToken String         @unique
+  deviceName    String?        @db.VarChar(255)
+  lastActiveAt  DateTime       @default(now())
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+
+  @@index([userId])
+  @@map("user_devices")
 }

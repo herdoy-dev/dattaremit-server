@@ -106,3 +106,39 @@ export const validCreatePromoterBody = {
   role: "PROMOTER",
   referValue: 5,
 };
+
+export const mockNotification = {
+  id: "880e8400-e29b-41d4-a716-446655440000",
+  userId: mockUser.id,
+  type: "KYC_APPROVED" as const,
+  title: "KYC Approved",
+  body: "Your identity verification is complete.",
+  metadata: null,
+  isRead: false,
+  readAt: null,
+  created_at: new Date(),
+};
+
+export const mockReadNotification = {
+  ...mockNotification,
+  id: "880e8400-e29b-41d4-a716-446655440001",
+  isRead: true,
+  readAt: new Date(),
+};
+
+export const mockDevice = {
+  id: "990e8400-e29b-41d4-a716-446655440000",
+  userId: mockUser.id,
+  platform: "IOS" as const,
+  expoPushToken: "ExponentPushToken[test-token-123]",
+  deviceName: "iPhone 15",
+  lastActiveAt: new Date(),
+  created_at: new Date(),
+  updated_at: new Date(),
+};
+
+export const validRegisterDeviceBody = {
+  expoPushToken: "ExponentPushToken[test-token-123]",
+  platform: "IOS",
+  deviceName: "iPhone 15",
+};

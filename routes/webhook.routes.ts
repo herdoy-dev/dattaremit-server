@@ -7,7 +7,8 @@ import AppError from "../lib/AppError";
 import userRepository from "../repositories/user.repository";
 import { kycEventSchema, type KYCEvent } from "../schemas/webhook.schema";
 import activityLogger from "../lib/activity-logger";
-import { ActivityStatus, ActivityType } from "../generated/prisma/client";
+import notificationLogger from "../lib/notification-logger";
+import { ActivityStatus, ActivityType, NotificationType } from "../generated/prisma/client";
 
 const router = express.Router();
 const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000;
@@ -134,15 +135,25 @@ router.post(
         body.eventStatus !== "approved" &&
         body.eventObject.status !== "approved"
       ) {
+        const isRejected = body.eventStatus === "rejected";
         await activityLogger.logActivity({
           userId: user.id,
-          type:
-            body.eventStatus === "rejected"
-              ? ActivityType.KYC_REJECTED
-              : ActivityType.KYC_FAILED,
+          type: isRejected
+            ? ActivityType.KYC_REJECTED
+            : ActivityType.KYC_FAILED,
           status: ActivityStatus.FAILED,
           description: "KYC not approved",
           metadata: body,
+        });
+        notificationLogger.notify({
+          userId: user.id,
+          type: isRejected
+            ? NotificationType.KYC_REJECTED
+            : NotificationType.KYC_FAILED,
+          title: isRejected ? "KYC Rejected" : "KYC Failed",
+          body: isRejected
+            ? "Your identity verification was not approved. Please try again."
+            : "Your identity verification encountered an issue. Please try again.",
         });
         return res.status(200).send(new APIResponse(true, "Event ignored"));
       }
@@ -153,6 +164,12 @@ router.post(
         status: ActivityStatus.COMPLETE,
         description: "KYC approved",
         metadata: body,
+      });
+      notificationLogger.notify({
+        userId: user.id,
+        type: NotificationType.KYC_APPROVED,
+        title: "KYC Approved",
+        body: "Your identity verification is complete. You can now link your bank account.",
       });
 
       // Update user status independently — this must succeed
