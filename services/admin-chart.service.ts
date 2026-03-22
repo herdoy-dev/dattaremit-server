@@ -1,5 +1,5 @@
 import { Prisma } from "../generated/prisma/client";
-import prismaClient, { decryptUserData, decryptNestedUser } from "../lib/prisma-client";
+import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
 
 class AdminChartService {
   async getDashboardStats() {
@@ -25,7 +25,7 @@ class AdminChartService {
       activeUsers,
       pendingKyc,
       totalActivities,
-      recentUsers: recentUsers.map(decryptUserData),
+      recentUsers,
       recentActivities: recentActivities.map(decryptNestedUser),
     };
   }

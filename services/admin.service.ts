@@ -1,7 +1,7 @@
 import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
 import type { AccountStatus, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
-import prismaClient, { encryptUserData, decryptUserData, decryptNestedUser } from "../lib/prisma-client";
+import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
 import crypto from "crypto";
 import { generateUniqueUserReferCode } from "../lib/refer-code";
 import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
@@ -26,14 +26,6 @@ async function logAdminAction(
       metadata,
     });
   }
-}
-
-function prepareEncryptedUserData(data: { dateOfBirth?: Date; [key: string]: unknown }) {
-  const { dateOfBirth, ...rest } = data;
-  return encryptUserData({
-    ...rest,
-    ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
-  });
 }
 
 class AdminService {
@@ -73,7 +65,7 @@ class AdminService {
     ]);
 
     return {
-      users: users.map(decryptUserData),
+      users,
       total,
       page,
       limit,
@@ -96,7 +88,7 @@ class AdminService {
       throw new AppError(404, "User not found");
     }
 
-    return decryptUserData(user);
+    return user;
   }
 
   async getActivities(
@@ -137,17 +129,18 @@ class AdminService {
   }
 
   async createUser(data: AdminCreateUserInput, actingAdminId?: string) {
-    const { role, accountStatus, referValue, ...dataToEncrypt } = data;
-    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
+    const { role, accountStatus, referValue, dateOfBirth, ...rest } = data;
 
     return prismaClient.$transaction(async (tx) => {
       await ensureEmailUnique(tx, data.email);
 
       const referCode = await generateUniqueUserReferCode(tx.user);
 
+      // Prisma extension handles encryption/decryption automatically
       const result = await tx.user.create({
         data: {
-          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          ...rest,
+          ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
           clerkUserId: `admin_created_${crypto.randomUUID()}`,
           role: role || "USER",
           accountStatus: accountStatus || "INITIAL",
@@ -162,17 +155,18 @@ class AdminService {
         targetUserId: result.id,
       });
 
-      return decryptUserData(result);
+      return result;
     });
   }
 
   async updateUser(id: string, data: AdminUpdateUserInput, actingAdminId?: string) {
-    const { referValue, ...rest } = data;
-    const encryptedData = prepareEncryptedUserData(rest);
-
-    // Add referValue back if present (not encrypted)
+    const { referValue, dateOfBirth, ...rest } = data;
+    const dataToUpdate: Record<string, unknown> = { ...rest };
+    if (dateOfBirth) {
+      dataToUpdate.dateOfBirth = dateOfBirth.toISOString();
+    }
     if (referValue !== undefined) {
-      (encryptedData as Record<string, unknown>).referValue = referValue;
+      dataToUpdate.referValue = referValue;
     }
 
     return prismaClient.$transaction(async (tx) => {
@@ -186,9 +180,10 @@ class AdminService {
         await ensureEmailUniqueForUpdate(tx, data.email, user.emailHash);
       }
 
+      // Prisma extension handles encryption/decryption automatically
       const result = await tx.user.update({
         where: { id },
-        data: encryptedData as Parameters<typeof tx.user.update>[0]["data"],
+        data: dataToUpdate as Parameters<typeof tx.user.update>[0]["data"],
         include: { addresses: true },
       });
 
@@ -198,7 +193,7 @@ class AdminService {
         updatedFields: Object.keys(data),
       });
 
-      return decryptUserData(result);
+      return result;
     });
   }
 
@@ -221,17 +216,16 @@ class AdminService {
     }
 
     const anonymizedEmail = `deleted_${crypto.createHash("sha256").update(id).digest("hex")}@deleted.invalid`;
-    const anonymizedData = encryptUserData({
-      firstName: "DELETED",
-      lastName: "DELETED",
-      email: anonymizedEmail,
-      phone: "0000000000",
-    });
 
+    // Prisma extension handles encryption automatically
     await prismaClient.user.update({
       where: { id },
       data: {
-        ...(anonymizedData as Parameters<typeof prismaClient.user.update>[0]["data"]),
+        firstName: "DELETED",
+        lastName: "DELETED",
+        email: anonymizedEmail,
+        phoneNumber: "0000000000",
+        phoneNumberPrefix: "",
         accountStatus: "DELETED" as AccountStatus,
         clerkUserId: `deleted_${id}`,
       },
@@ -273,7 +267,7 @@ class AdminService {
       newRole: role,
     });
 
-    return decryptUserData(result);
+    return result;
   }
 
   async toggleAchPush(id: string, enabled: boolean, actingAdminId?: string) {
@@ -294,7 +288,7 @@ class AdminService {
       enabled,
     });
 
-    return decryptUserData(result);
+    return result;
   }
 }
 

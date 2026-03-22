@@ -1,9 +1,6 @@
 import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
-import prismaClient, {
-  encryptUserData,
-  decryptUserData,
-} from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import { generateUniqueUserReferCode } from "../lib/refer-code";
 import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
 import userRepository from "../repositories/user.repository";
@@ -18,15 +15,9 @@ class UserService {
     return Sentry.startSpan(
       { name: "user.create", op: "db.transaction", attributes: { "user.has_referral": !!data.referredByCode } },
       async () => {
-    // Encrypt data and prepare for database (exclude referredByCode from encryption)
-    const { referredByCode, ...dataToEncrypt } = data;
-    const encryptedData = encryptUserData({
-      ...dataToEncrypt,
-      dateOfBirth: data.dateOfBirth.toISOString(),
-    });
+    const { referredByCode, dateOfBirth, ...rest } = data;
 
     return prismaClient.$transaction(async (tx) => {
-      // Check for existing user by clerkUserId
       const existingByClerk = await tx.user.findUnique({
         where: { clerkUserId: data.clerkUserId },
       });
@@ -37,7 +28,6 @@ class UserService {
 
       await ensureEmailUnique(tx, data.email);
 
-      // Validate referredByCode if provided
       if (referredByCode) {
         const referrer = await tx.user.findUnique({
           where: { referCode: referredByCode.toUpperCase() },
@@ -49,28 +39,27 @@ class UserService {
 
       const referCode = await generateUniqueUserReferCode(tx.user);
 
-      const result = await tx.user.create({
+      // Prisma extension handles encryption/decryption automatically
+      return tx.user.create({
         data: {
-          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          ...rest,
+          dateOfBirth: dateOfBirth.toISOString(),
           referCode,
           ...(referredByCode ? { referredByCode } : {}),
         },
         include: { addresses: true },
       });
-
-      return decryptUserData(result);
     });
       },
     );
   }
 
   async update(id: string, data: UpdateUserInput) {
-    // Prepare encrypted data if there are fields to encrypt
-    const dataToUpdate: Record<string, unknown> = { ...data };
-    if (data.dateOfBirth) {
-      dataToUpdate.dateOfBirth = data.dateOfBirth.toISOString();
+    const { dateOfBirth, ...rest } = data;
+    const dataToUpdate: Record<string, unknown> = { ...rest };
+    if (dateOfBirth) {
+      dataToUpdate.dateOfBirth = dateOfBirth.toISOString();
     }
-    const encryptedData = encryptUserData(dataToUpdate);
 
     return prismaClient.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -86,13 +75,12 @@ class UserService {
         await ensureEmailUniqueForUpdate(tx, data.email, user.emailHash);
       }
 
-      const result = await tx.user.update({
+      // Prisma extension handles encryption/decryption automatically
+      return tx.user.update({
         where: { id },
-        data: encryptedData as Parameters<typeof tx.user.update>[0]["data"],
+        data: dataToUpdate as Parameters<typeof tx.user.update>[0]["data"],
         include: { addresses: true },
       });
-
-      return decryptUserData(result);
     });
   }
 
@@ -138,7 +126,6 @@ class UserService {
         throw new AppError(404, "User not found");
       }
 
-      // Idempotent: return existing code
       if (user.referCode) {
         return { referCode: user.referCode };
       }

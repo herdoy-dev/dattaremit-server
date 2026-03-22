@@ -1,6 +1,6 @@
 import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
-import prismaClient, { encryptUserData, decryptUserData } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import crypto from "crypto";
 import { createSearchHash } from "../lib/crypto";
 import { generateUniquePromoterReferCode } from "../lib/refer-code";
@@ -12,18 +12,9 @@ function escapeIlike(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
-function prepareEncryptedUserData(data: { dateOfBirth?: Date; [key: string]: unknown }) {
-  const { dateOfBirth, ...rest } = data;
-  return encryptUserData({
-    ...rest,
-    ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
-  });
-}
-
 class AdminPromoterService {
   async createPromoter(data: AdminCreatePromoterInput, actingAdminId?: string) {
-    const { role, accountStatus, referValue, ...dataToEncrypt } = data;
-    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
+    const { role, accountStatus, referValue, dateOfBirth, ...rest } = data;
 
     return prismaClient.$transaction(async (tx) => {
       await ensureEmailUnique(tx, data.email);
@@ -34,9 +25,11 @@ class AdminPromoterService {
         data.lastName,
       );
 
+      // Prisma extension handles encryption/decryption automatically
       const result = await tx.user.create({
         data: {
-          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          ...rest,
+          ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
           clerkUserId: `admin_created_${crypto.randomUUID()}`,
           role,
           accountStatus: accountStatus || "ACTIVE",
@@ -56,7 +49,7 @@ class AdminPromoterService {
         });
       }
 
-      return decryptUserData(result);
+      return result;
     });
   }
 
@@ -105,7 +98,7 @@ class AdminPromoterService {
     ]);
 
     return {
-      promoters: users.map(decryptUserData),
+      promoters: users,
       total,
       page,
       limit,
