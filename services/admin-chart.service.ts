@@ -1,8 +1,34 @@
 import { Prisma } from "../generated/prisma/client";
 import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const cache = new Map<string, CacheEntry<unknown>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (entry && Date.now() < entry.expiresAt) {
+    return entry.data as T;
+  }
+  cache.delete(key);
+  return null;
+}
+
+function setCache<T>(key: string, data: T): T {
+  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  return data;
+}
+
 class AdminChartService {
   async getDashboardStats() {
+    const cached = getCached<ReturnType<typeof this.getDashboardStats>>("dashboardStats");
+    if (cached) return cached;
+
     const [totalUsers, activeUsers, pendingKyc, totalActivities, recentUsers, recentActivities] =
       await Promise.all([
         prismaClient.user.count(),
@@ -20,66 +46,78 @@ class AdminChartService {
         }),
       ]);
 
-    return {
+    return setCache("dashboardStats", {
       totalUsers,
       activeUsers,
       pendingKyc,
       totalActivities,
       recentUsers,
       recentActivities: recentActivities.map(decryptNestedUser),
-    };
+    });
   }
 
   async getRegistrationChart() {
+    const cached = getCached<ReturnType<typeof this.getRegistrationChart>>("registrationChart");
+    if (cached) return cached;
+
     const result = await prismaClient.$queryRaw<
       { month: Date; count: bigint }[]
     >(
       Prisma.sql`SELECT DATE_TRUNC('month', created_at) as month, COUNT(*) as count FROM users GROUP BY month ORDER BY month`
     );
 
-    return result.map((row) => ({
+    return setCache("registrationChart", result.map((row) => ({
       month: row.month.toISOString(),
       count: Number(row.count),
-    }));
+    })));
   }
 
   async getActivityTypeChart() {
+    const cached = getCached<ReturnType<typeof this.getActivityTypeChart>>("activityTypeChart");
+    if (cached) return cached;
+
     const result = await prismaClient.$queryRaw<
       { type: string; count: bigint }[]
     >(
       Prisma.sql`SELECT type, COUNT(*) as count FROM activities GROUP BY type`
     );
 
-    return result.map((row) => ({
+    return setCache("activityTypeChart", result.map((row) => ({
       type: row.type,
       count: Number(row.count),
-    }));
+    })));
   }
 
   async getAccountStatusChart() {
+    const cached = getCached<ReturnType<typeof this.getAccountStatusChart>>("accountStatusChart");
+    if (cached) return cached;
+
     const result = await prismaClient.$queryRaw<
       { accountStatus: string; count: bigint }[]
     >(
       Prisma.sql`SELECT "accountStatus", COUNT(*) as count FROM users GROUP BY "accountStatus"`
     );
 
-    return result.map((row) => ({
+    return setCache("accountStatusChart", result.map((row) => ({
       status: row.accountStatus,
       count: Number(row.count),
-    }));
+    })));
   }
 
   async getKycActivityChart() {
+    const cached = getCached<ReturnType<typeof this.getKycActivityChart>>("kycActivityChart");
+    if (cached) return cached;
+
     const result = await prismaClient.$queryRaw<
       { type: string; count: bigint }[]
     >(
       Prisma.sql`SELECT type::text, COUNT(*) as count FROM activities WHERE type::text LIKE 'KYC_%' GROUP BY type`
     );
 
-    return result.map((row) => ({
+    return setCache("kycActivityChart", result.map((row) => ({
       type: row.type,
       count: Number(row.count),
-    }));
+    })));
   }
 }
 
