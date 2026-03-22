@@ -34,6 +34,9 @@ model User {
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
 
+  @@index([referredByCode])
+  @@index([zynkEntityId])
+  @@index([created_at])
   @@map("users")
 }
 
@@ -144,6 +147,7 @@ model Activity {
   @@index([type])
   @@index([status])
   @@index([referenceId])
+  @@index([created_at])
   @@map("activities")
 }
 
