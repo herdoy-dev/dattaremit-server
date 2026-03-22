@@ -8,6 +8,8 @@ import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
 import validate from "../lib/validate";
 import adminService from "../services/admin.service";
+import adminChartService from "../services/admin-chart.service";
+import adminPromoterService from "../services/admin-promoter.service";
 import {
   adminCreateUserSchema,
   adminUpdateUserSchema,
@@ -43,7 +45,7 @@ function parsePagination(query: Request["query"]) {
 
 class AdminController {
   getDashboardStats = asyncHandler(async (_req: Request, res: Response) => {
-    const stats = await adminService.getDashboardStats();
+    const stats = await adminChartService.getDashboardStats();
     res
       .status(200)
       .json(new APIResponse(true, "Dashboard stats retrieved successfully", stats));
@@ -85,28 +87,28 @@ class AdminController {
   });
 
   getRegistrationChart = asyncHandler(async (_req: Request, res: Response) => {
-    const data = await adminService.getRegistrationChart();
+    const data = await adminChartService.getRegistrationChart();
     res
       .status(200)
       .json(new APIResponse(true, "Registration chart data retrieved successfully", data));
   });
 
   getActivityTypeChart = asyncHandler(async (_req: Request, res: Response) => {
-    const data = await adminService.getActivityTypeChart();
+    const data = await adminChartService.getActivityTypeChart();
     res
       .status(200)
       .json(new APIResponse(true, "Activity type chart data retrieved successfully", data));
   });
 
   getAccountStatusChart = asyncHandler(async (_req: Request, res: Response) => {
-    const data = await adminService.getAccountStatusChart();
+    const data = await adminChartService.getAccountStatusChart();
     res
       .status(200)
       .json(new APIResponse(true, "Account status chart data retrieved successfully", data));
   });
 
   getKycActivityChart = asyncHandler(async (_req: Request, res: Response) => {
-    const data = await adminService.getKycActivityChart();
+    const data = await adminChartService.getKycActivityChart();
     res
       .status(200)
       .json(new APIResponse(true, "KYC activity chart data retrieved successfully", data));
@@ -126,7 +128,7 @@ class AdminController {
     const value = validate(adminCreatePromoterSchema, req.body);
 
     const actingAdminId = (req as AuthRequest).user.id;
-    const user = await adminService.createPromoter(value, actingAdminId);
+    const user = await adminPromoterService.createPromoter(value, actingAdminId);
     res
       .status(201)
       .json(new APIResponse(true, "Promoter created successfully", user));
@@ -140,7 +142,7 @@ class AdminController {
       throw new AppError(400, "firstName and lastName are required");
     }
 
-    const result = await adminService.previewReferCode(firstName, lastName);
+    const result = await adminPromoterService.previewReferCode(firstName, lastName);
     res
       .status(200)
       .json(new APIResponse(true, "Refer code preview generated", result));
@@ -152,14 +154,14 @@ class AdminController {
       ? validate(Joi.object({ role: Joi.string().valid("INFLUENCER", "PROMOTER").required() }), { role: req.query.role }).role as "INFLUENCER" | "PROMOTER"
       : undefined;
 
-    const result = await adminService.getPromoters(page, limit, search, role);
+    const result = await adminPromoterService.getPromoters(page, limit, search, role);
     res
       .status(200)
       .json(new APIResponse(true, "Promoters retrieved successfully", result));
   });
 
   getMarketingStats = asyncHandler(async (_req: Request, res: Response) => {
-    const data = await adminService.getMarketingStats();
+    const data = await adminPromoterService.getMarketingStats();
     res
       .status(200)
       .json(new APIResponse(true, "Marketing stats retrieved successfully", data));
@@ -210,7 +212,7 @@ class AdminController {
   getReferralStats = asyncHandler(async (req: Request, res: Response) => {
     const { page, limit, search } = parsePagination(req.query);
 
-    const data = await adminService.getReferralStats(page, limit, search);
+    const data = await adminPromoterService.getReferralStats(page, limit, search);
     res
       .status(200)
       .json(new APIResponse(true, "Referral stats retrieved successfully", data));

@@ -1,4 +1,4 @@
-import { mockUserService, mockAdminService } from "./helpers/service-mocks";
+import { mockUserService, mockAdminService, mockAdminChartService, mockAdminPromoterService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
 import { AUTH_TOKEN } from "./helpers/auth";
@@ -36,7 +36,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/stats", () => {
     it("should return dashboard stats", async () => {
-      mockAdminService.getDashboardStats.mockResolvedValueOnce({
+      mockAdminChartService.getDashboardStats.mockResolvedValueOnce({
         totalUsers: 100,
         activeUsers: 80,
         pendingKyc: 10,
@@ -299,7 +299,7 @@ describe("Admin Endpoints", () => {
 
   describe("Chart Endpoints", () => {
     it("GET /api/admin/charts/registrations", async () => {
-      mockAdminService.getRegistrationChart.mockResolvedValueOnce([]);
+      mockAdminChartService.getRegistrationChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/registrations")
@@ -310,7 +310,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/activity-types", async () => {
-      mockAdminService.getActivityTypeChart.mockResolvedValueOnce([]);
+      mockAdminChartService.getActivityTypeChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/activity-types")
@@ -321,7 +321,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/account-status", async () => {
-      mockAdminService.getAccountStatusChart.mockResolvedValueOnce([]);
+      mockAdminChartService.getAccountStatusChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/account-status")
@@ -332,7 +332,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/charts/kyc", async () => {
-      mockAdminService.getKycActivityChart.mockResolvedValueOnce([]);
+      mockAdminChartService.getKycActivityChart.mockResolvedValueOnce([]);
 
       const res = await request(app)
         .get("/api/admin/charts/kyc")
@@ -345,7 +345,7 @@ describe("Admin Endpoints", () => {
 
   describe("GET /api/admin/referral-stats", () => {
     it("should return referral stats", async () => {
-      mockAdminService.getReferralStats.mockResolvedValueOnce({
+      mockAdminPromoterService.getReferralStats.mockResolvedValueOnce({
         stats: [],
         total: 0,
       });
@@ -361,7 +361,7 @@ describe("Admin Endpoints", () => {
 
   describe("Marketing Endpoints", () => {
     it("GET /api/admin/marketing/stats", async () => {
-      mockAdminService.getMarketingStats.mockResolvedValueOnce({
+      mockAdminPromoterService.getMarketingStats.mockResolvedValueOnce({
         totalPromoters: 10,
       });
 
@@ -374,7 +374,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/marketing/promoters", async () => {
-      mockAdminService.getPromoters.mockResolvedValueOnce({
+      mockAdminPromoterService.getPromoters.mockResolvedValueOnce({
         promoters: [],
         total: 0,
       });
@@ -388,7 +388,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("GET /api/admin/marketing/promoters/preview-refer-code", async () => {
-      mockAdminService.previewReferCode.mockResolvedValueOnce({
+      mockAdminPromoterService.previewReferCode.mockResolvedValueOnce({
         referCode: "JOHNS123",
       });
 
@@ -411,7 +411,7 @@ describe("Admin Endpoints", () => {
     });
 
     it("POST /api/admin/marketing/promoters", async () => {
-      mockAdminService.createPromoter.mockResolvedValueOnce({
+      mockAdminPromoterService.createPromoter.mockResolvedValueOnce({
         ...mockUser,
         role: "PROMOTER",
         referCode: "PROMOU123",

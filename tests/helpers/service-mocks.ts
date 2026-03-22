@@ -36,7 +36,6 @@ jest.mock("../../services/activity.service", () => ({
 jest.mock("../../services/admin.service", () => ({
   __esModule: true,
   default: {
-    getDashboardStats: jest.fn(),
     getUsers: jest.fn(),
     getUserById: jest.fn(),
     createUser: jest.fn(),
@@ -45,10 +44,23 @@ jest.mock("../../services/admin.service", () => ({
     changeUserRole: jest.fn(),
     toggleAchPush: jest.fn(),
     getActivities: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/admin-chart.service", () => ({
+  __esModule: true,
+  default: {
+    getDashboardStats: jest.fn(),
     getRegistrationChart: jest.fn(),
     getActivityTypeChart: jest.fn(),
     getAccountStatusChart: jest.fn(),
     getKycActivityChart: jest.fn(),
+  },
+}));
+
+jest.mock("../../services/admin-promoter.service", () => ({
+  __esModule: true,
+  default: {
     createPromoter: jest.fn(),
     previewReferCode: jest.fn(),
     getPromoters: jest.fn(),
@@ -140,6 +152,8 @@ export const mockUserService = require("../../services/user.service").default;
 export const mockAddressService = require("../../services/address.service").default;
 export const mockActivityService = require("../../services/activity.service").default;
 export const mockAdminService = require("../../services/admin.service").default;
+export const mockAdminChartService = require("../../services/admin-chart.service").default;
+export const mockAdminPromoterService = require("../../services/admin-promoter.service").default;
 export const mockZynkService = require("../../services/zynk.service").default;
 export const mockExchangeRateService = require("../../services/exchange-rate.service").default;
 export const mockUserRepository = require("../../repositories/user.repository").default;
