@@ -21,7 +21,7 @@ const error = (
         tags: { status: err.status, path: req.path },
       });
     }
-    return res.status(err.status).send(new APIResponse(false, err.message));
+    return res.status(err.status).send(new APIResponse(false, err.message, undefined, err.code));
   }
   // setupExpressErrorHandler already captures non-AppError exceptions
   logger.error("Unexpected error", {

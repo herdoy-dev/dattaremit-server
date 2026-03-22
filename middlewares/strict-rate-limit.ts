@@ -9,6 +9,15 @@ export const adminRateLimit = rateLimit({
   },
 });
 
+export const publicApiRateLimit = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
 export const sensitiveRateLimit = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 10,
