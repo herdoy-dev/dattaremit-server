@@ -4,8 +4,8 @@ import prismaClient, {
   encryptUserData,
   decryptUserData,
 } from "../lib/prisma-client";
-import { createSearchHash } from "../lib/crypto";
-import { generateUserReferCode } from "../lib/refer-code";
+import { generateUniqueUserReferCode } from "../lib/refer-code";
+import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
 import userRepository from "../repositories/user.repository";
 import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema";
 
@@ -35,15 +35,7 @@ class UserService {
         throw new AppError(409, "Account already exists for this user");
       }
 
-      // Check for existing user using emailHash
-      const emailHash = createSearchHash(data.email);
-      const existingUser = await tx.user.findUnique({
-        where: { emailHash },
-      });
-
-      if (existingUser) {
-        throw new AppError(409, "User with this email already exists");
-      }
+      await ensureEmailUnique(tx, data.email);
 
       // Validate referredByCode if provided
       if (referredByCode) {
@@ -55,18 +47,7 @@ class UserService {
         }
       }
 
-      // Generate a unique refer code with retry
-      let referCode: string | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const candidate = generateUserReferCode();
-        const existing = await tx.user.findUnique({
-          where: { referCode: candidate },
-        });
-        if (!existing) {
-          referCode = candidate;
-          break;
-        }
-      }
+      const referCode = await generateUniqueUserReferCode(tx.user);
 
       const result = await tx.user.create({
         data: {
@@ -101,18 +82,8 @@ class UserService {
         throw new AppError(404, "User not found");
       }
 
-      // Check email uniqueness if email is being updated
       if (data.email) {
-        const newEmailHash = createSearchHash(data.email);
-        if (newEmailHash !== user.emailHash) {
-          const existingUser = await tx.user.findUnique({
-            where: { emailHash: newEmailHash },
-          });
-
-          if (existingUser) {
-            throw new AppError(409, "User with this email already exists");
-          }
-        }
+        await ensureEmailUniqueForUpdate(tx, data.email, user.emailHash);
       }
 
       const result = await tx.user.update({
@@ -172,22 +143,16 @@ class UserService {
         return { referCode: user.referCode };
       }
 
-      // Generate a unique refer code with retry
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const candidate = generateUserReferCode();
-        const existing = await tx.user.findUnique({
-          where: { referCode: candidate },
-        });
-        if (!existing) {
-          const updated = await tx.user.update({
-            where: { id: userId },
-            data: { referCode: candidate },
-          });
-          return { referCode: updated.referCode };
-        }
+      const newCode = await generateUniqueUserReferCode(tx.user);
+      if (!newCode) {
+        throw new AppError(500, "Failed to generate unique refer code");
       }
 
-      throw new AppError(500, "Failed to generate unique refer code");
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { referCode: newCode },
+      });
+      return { referCode: updated.referCode };
     });
   }
 }

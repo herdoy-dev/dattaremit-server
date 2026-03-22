@@ -25,6 +25,44 @@ export function generatePromoterReferCode(
   return `${PREFIX}-${cleanFirst}${lastInitial}`;
 }
 
+/**
+ * Generate a unique user refer code with retry logic.
+ * Tries up to `maxAttempts` times to find an unused code.
+ */
+export async function generateUniqueUserReferCode(
+  lookup: { findUnique: (args: { where: { referCode: string } }) => Promise<unknown> },
+  maxAttempts = 3,
+): Promise<string | null> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const candidate = generateUserReferCode();
+    const existing = await lookup.findUnique({ where: { referCode: candidate } });
+    if (!existing) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Generate a unique promoter refer code with suffix retry logic.
+ * Tries base code first, then appends incrementing suffix.
+ */
+export async function generateUniquePromoterReferCode(
+  lookup: { findUnique: (args: { where: { referCode: string } }) => Promise<unknown> },
+  firstName: string,
+  lastName: string,
+  maxAttempts = 100,
+): Promise<string> {
+  const baseCode = generatePromoterReferCode(firstName, lastName);
+  let referCode = baseCode;
+
+  for (let suffix = 1; suffix <= maxAttempts; suffix++) {
+    const existing = await lookup.findUnique({ where: { referCode } });
+    if (!existing) return referCode;
+    referCode = `${baseCode}${suffix + 1}`;
+  }
+
+  throw new Error("Failed to generate unique promoter refer code");
+}
+
 /** @deprecated Use generateUserReferCode() instead */
 export function generateReferCode(): string {
   return generateUserReferCode();

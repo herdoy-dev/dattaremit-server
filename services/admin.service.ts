@@ -4,7 +4,8 @@ import AppError from "../lib/AppError";
 import prismaClient, { encryptUserData, decryptUserData, decryptNestedUser } from "../lib/prisma-client";
 import crypto from "crypto";
 import { createSearchHash } from "../lib/crypto";
-import { generateUserReferCode, generatePromoterReferCode } from "../lib/refer-code";
+import { generateUniqueUserReferCode, generateUniquePromoterReferCode } from "../lib/refer-code";
+import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
 import type { AdminCreateUserInput, AdminCreatePromoterInput, AdminUpdateUserInput } from "../schemas/admin.schema";
 import activityLogger from "../lib/activity-logger";
 
@@ -32,51 +33,12 @@ async function logAdminAction(
   }
 }
 
-async function ensureEmailUnique(
-  tx: { user: { findUnique: Function } },
-  email: string
-) {
-  const emailHash = createSearchHash(email);
-  const existingUser = await tx.user.findUnique({
-    where: { emailHash },
-  });
-
-  if (existingUser) {
-    throw new AppError(409, "User with this email already exists");
-  }
-}
-
 function prepareEncryptedUserData(data: { dateOfBirth?: Date; [key: string]: unknown }) {
   const { dateOfBirth, ...rest } = data;
   return encryptUserData({
     ...rest,
     ...(dateOfBirth ? { dateOfBirth: dateOfBirth.toISOString() } : {}),
   });
-}
-
-async function generateUniquePromoterCode(
-  lookup: { findUnique: Function },
-  firstName: string,
-  lastName: string
-) {
-  const baseCode = generatePromoterReferCode(firstName, lastName);
-  let referCode = baseCode;
-  let suffix = 2;
-
-  const MAX_CODE_ATTEMPTS = 100;
-  while (suffix <= MAX_CODE_ATTEMPTS + 1) {
-    const existing = await lookup.findUnique({
-      where: { referCode },
-    });
-    if (!existing) return referCode;
-    referCode = `${baseCode}${suffix}`;
-    suffix++;
-    if (suffix > MAX_CODE_ATTEMPTS + 1) {
-      throw new AppError(500, "Failed to generate unique promoter refer code");
-    }
-  }
-
-  return referCode;
 }
 
 class AdminService {
@@ -266,18 +228,7 @@ class AdminService {
     return prismaClient.$transaction(async (tx) => {
       await ensureEmailUnique(tx, data.email);
 
-      // Generate unique refer code
-      let referCode: string | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const candidate = generateUserReferCode();
-        const existing = await tx.user.findUnique({
-          where: { referCode: candidate },
-        });
-        if (!existing) {
-          referCode = candidate;
-          break;
-        }
-      }
+      const referCode = await generateUniqueUserReferCode(tx.user);
 
       const result = await tx.user.create({
         data: {
@@ -307,10 +258,10 @@ class AdminService {
     return prismaClient.$transaction(async (tx) => {
       await ensureEmailUnique(tx, data.email);
 
-      const referCode = await generateUniquePromoterCode(
+      const referCode = await generateUniquePromoterReferCode(
         tx.user,
         data.firstName,
-        data.lastName
+        data.lastName,
       );
 
       const result = await tx.user.create({
@@ -336,10 +287,10 @@ class AdminService {
   }
 
   async previewReferCode(firstName: string, lastName: string) {
-    const referCode = await generateUniquePromoterCode(
+    const referCode = await generateUniquePromoterReferCode(
       prismaClient.user,
       firstName,
-      lastName
+      lastName,
     );
 
     return { referCode };
@@ -425,17 +376,8 @@ class AdminService {
         throw new AppError(404, "User not found");
       }
 
-      // Check email uniqueness if email is being updated
       if (data.email) {
-        const newEmailHash = createSearchHash(data.email);
-        if (newEmailHash !== user.emailHash) {
-          const existingUser = await tx.user.findUnique({
-            where: { emailHash: newEmailHash },
-          });
-          if (existingUser) {
-            throw new AppError(409, "User with this email already exists");
-          }
-        }
+        await ensureEmailUniqueForUpdate(tx, data.email, user.emailHash);
       }
 
       const result = await tx.user.update({
