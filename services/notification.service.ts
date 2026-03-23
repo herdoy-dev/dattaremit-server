@@ -1,4 +1,6 @@
+import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
+import logger from "../lib/logger";
 import notificationRepository from "../repositories/notification.repository";
 import pushService from "./push.service";
 import type {
@@ -8,18 +10,29 @@ import type {
 
 class NotificationService {
   async create(data: CreateNotificationInput) {
-    const notification = await notificationRepository.create(data);
+    return Sentry.startSpan(
+      { name: "notification.create", op: "notification", attributes: { "notification.type": data.type } },
+      async () => {
+        const notification = await notificationRepository.create(data);
 
-    // Fire-and-forget push delivery
-    pushService
-      .sendToUser(data.userId, {
-        title: data.title,
-        body: data.body,
-        data: { type: data.type, notificationId: notification.id },
-      })
-      .catch(() => {});
+        // Fire-and-forget push delivery
+        pushService
+          .sendToUser(data.userId, {
+            title: data.title,
+            body: data.body,
+            data: { type: data.type, notificationId: notification.id },
+          })
+          .catch((err) => {
+            logger.warn("Push delivery failed (fire-and-forget)", {
+              error: err instanceof Error ? err.message : String(err),
+              userId: data.userId,
+              notificationId: notification.id,
+            });
+          });
 
-    return notification;
+        return notification;
+      },
+    );
   }
 
   async getByUserId(userId: string, filters: NotificationFilters) {

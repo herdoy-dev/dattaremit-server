@@ -11,6 +11,7 @@ import type { ZynkEntityData } from "../repositories/zynk.repository";
 import zynkService from "../services/zynk.service";
 import { createAddressSchema } from "../schemas/address.schema";
 import { sendKycEmail } from "../services/email.service";
+import googleMapsService from "../services/google-maps.service";
 import logger from "../lib/logger";
 
 class OnboardingController {
@@ -18,6 +19,18 @@ class OnboardingController {
     const dbUser = req.user;
 
     const value = validate(createAddressSchema, { ...req.body, userId: dbUser.id });
+
+    // Run address validation in parallel with save+entity creation
+    const validationPromise = googleMapsService
+      .validateAddress({
+        addressLine1: value.addressLine1,
+        addressLine2: value.addressLine2,
+        city: value.city,
+        state: value.state,
+        country: value.country,
+        postalCode: value.postalCode,
+      })
+      .catch(() => ({ validationStatus: "UNAVAILABLE" as const }));
 
     // Wrap address save and entity creation in a single transaction
     // so the address is rolled back if entity creation fails
@@ -94,10 +107,13 @@ class OnboardingController {
       };
     });
 
+    const validation = await validationPromise;
+
     res.status(201).json(
       new APIResponse(true, "Address saved and entity created", {
         address: result.address,
         entityCreated: result.entityCreated,
+        validation,
       })
     );
   });

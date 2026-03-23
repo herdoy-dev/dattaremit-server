@@ -31,7 +31,8 @@ export default async function adminAuth(
     }
 
     (req as AuthRequest).user = user;
-    Sentry.setUser({ id: decoded.sub, username: String(user.id) });
+    Sentry.setUser({ id: decoded.sub });
+    Sentry.getCurrentScope().setTag("db_user_id", String(user.id));
     next();
   } catch (error) {
     handleAuthError(error, next);

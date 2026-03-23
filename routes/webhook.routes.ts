@@ -122,6 +122,13 @@ router.post(
       const body: KYCEvent = value;
       span.setAttribute("eventCategory", body.eventCategory);
       span.setAttribute("eventStatus", body.eventStatus);
+
+      Sentry.addBreadcrumb({
+        category: "webhook",
+        message: `Webhook validated: ${body.eventCategory}/${body.eventStatus}`,
+        level: "info",
+        data: { eventCategory: body.eventCategory, eventStatus: body.eventStatus },
+      });
       if (body.eventCategory !== "kyc") {
         return res.status(200).send(new APIResponse(true, "Event ignored"));
       }

@@ -104,6 +104,20 @@ jest.mock("../../services/push.service", () => ({
   },
 }));
 
+jest.mock("../../services/google-maps.service", () => ({
+  __esModule: true,
+  default: {
+    validateAddress: jest.fn().mockResolvedValue({
+      validationStatus: "VALID",
+      validationGranularity: "PREMISE",
+      addressComplete: true,
+      formattedAddress: "123 Main St, New York, NY 10001, USA",
+    }),
+    getAutocompleteSuggestions: jest.fn(),
+    getPlaceDetails: jest.fn(),
+  },
+}));
+
 jest.mock("../../repositories/user.repository", () => ({
   __esModule: true,
   default: {
@@ -176,5 +190,6 @@ export const mockZynkRepository = require("../../repositories/zynk.repository").
 export const mockNotificationService = require("../../services/notification.service").default;
 export const mockDeviceService = require("../../services/device.service").default;
 export const mockPushService = require("../../services/push.service").default;
+export const mockGoogleMapsService = require("../../services/google-maps.service").default;
 export const mockPrismaClient = require("../../lib/prisma-client").default;
 export { mockTx };

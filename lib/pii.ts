@@ -1,9 +1,9 @@
 const PII_PATTERNS: [RegExp, string][] = [
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[EMAIL_REDACTED]"],
-  [/\b\d{10,15}\b/g, "[PHONE_REDACTED]"],
+  [/(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}/g, "[PHONE_REDACTED]"],
   [/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN_REDACTED]"],
   [/\b\d{9}\b/g, "[SSN_REDACTED]"],
-  [/\b\d{13,19}\b/g, "[CARD_REDACTED]"],
+  [/\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{1,7}\b/g, "[CARD_REDACTED]"],
 ];
 
 const SENSITIVE_KEYS = new Set([
@@ -21,6 +21,10 @@ const SENSITIVE_KEYS = new Set([
   "email",
   "nationality",
   "ipAddress",
+  "formattedAddress",
+  "latitude",
+  "longitude",
+  "placeId",
 ]);
 
 export function maskPii(value: unknown): unknown {

@@ -2,7 +2,7 @@ import winston from "winston";
 import path from "node:path";
 import fs from "node:fs";
 import { maskPii } from "./pii";
-import SentryBreadcrumbTransport from "./sentry-breadcrumb-transport";
+import SentryLogTransport from "./sentry-log-transport";
 
 const logsDir = path.join(process.cwd(), "logs");
 if (!fs.existsSync(logsDir)) {
@@ -20,7 +20,7 @@ const logger = winston.createLogger({
     piiMaskFormat(),
     winston.format.json()
   ),
-  defaultMeta: { service: "user-service" },
+  defaultMeta: { service: "dattaremit-server" },
   transports: [
     new winston.transports.File({
       filename: path.join(logsDir, "error.log"),
@@ -43,7 +43,7 @@ const logger = winston.createLogger({
 });
 
 if (process.env.SENTRY_DSN) {
-  logger.add(new SentryBreadcrumbTransport({ level: "info" }));
+  logger.add(new SentryLogTransport({ level: "info" }));
 }
 
 if (process.env.NODE_ENV !== "production") {

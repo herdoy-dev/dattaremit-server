@@ -104,6 +104,13 @@ class ZynkService {
           });
         });
 
+        Sentry.addBreadcrumb({
+          category: "zynk",
+          message: "Entity created successfully",
+          level: "info",
+          data: { endpoint: "entity/create" },
+        });
+
         return toPublicUser(decryptUserData(updatedUser!));
       },
     );
@@ -139,6 +146,13 @@ class ZynkService {
           type: NotificationType.KYC_PENDING,
           title: "KYC In Progress",
           body: "Your identity verification has been submitted. We'll notify you once it's reviewed.",
+        });
+
+        Sentry.addBreadcrumb({
+          category: "zynk",
+          message: "KYC started",
+          level: "info",
+          data: { endpoint: "kyc/start" },
         });
 
         return response.data;

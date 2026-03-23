@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
 import type { AccountStatus, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
@@ -260,6 +261,9 @@ class AdminService {
   }
 
   async createUser(data: AdminCreateUserInput, actingAdminId?: string) {
+    return Sentry.startSpan(
+      { name: "admin.createUser", op: "db.transaction", attributes: { "admin.role": data.role || "USER" } },
+      async () => {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
     const encryptedData = prepareEncryptedUserData(dataToEncrypt);
 
@@ -298,9 +302,14 @@ class AdminService {
 
       return decryptUserData(result);
     });
+      },
+    );
   }
 
   async createPromoter(data: AdminCreatePromoterInput, actingAdminId?: string) {
+    return Sentry.startSpan(
+      { name: "admin.createPromoter", op: "db.transaction", attributes: { "admin.role": data.role } },
+      async () => {
     const { role, accountStatus, referValue, ...dataToEncrypt } = data;
     const encryptedData = prepareEncryptedUserData(dataToEncrypt);
 
@@ -333,6 +342,8 @@ class AdminService {
 
       return decryptUserData(result);
     });
+      },
+    );
   }
 
   async previewReferCode(firstName: string, lastName: string) {
@@ -410,6 +421,9 @@ class AdminService {
   }
 
   async updateUser(id: string, data: AdminUpdateUserInput, actingAdminId?: string) {
+    return Sentry.startSpan(
+      { name: "admin.updateUser", op: "db.transaction", attributes: { "admin.target_user": id } },
+      async () => {
     const { referValue, ...rest } = data;
     const encryptedData = prepareEncryptedUserData(rest);
 
@@ -452,9 +466,14 @@ class AdminService {
 
       return decryptUserData(result);
     });
+      },
+    );
   }
 
   async deleteUser(id: string, actingAdminId: string) {
+    return Sentry.startSpan(
+      { name: "admin.deleteUser", op: "db.transaction", attributes: { "admin.target_user": id } },
+      async () => {
     if (id === actingAdminId) {
       throw new AppError(400, "Cannot delete your own account");
     }
@@ -496,6 +515,8 @@ class AdminService {
       action: "deleteUser",
       targetUserId: id,
     });
+      },
+    );
   }
 
   async changeUserRole(id: string, role: UserRole, actingAdminId: string) {

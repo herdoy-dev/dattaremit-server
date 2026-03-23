@@ -10,17 +10,21 @@ class PushService {
     notification: { title: string; body: string; data?: object }
   ) {
     return Sentry.startSpan(
-      { name: "push.sendToUser", op: "push" },
-      async () => {
+      { name: "push.sendToUser", op: "push", attributes: { "push.user_id": userId } },
+      async (span) => {
         try {
           const devices = await deviceRepository.findByUserId(userId);
           if (devices.length === 0) return;
+
+          span.setAttribute("push.device_count", devices.length);
 
           const validTokens = devices
             .map((d) => d.expoPushToken)
             .filter((token) => Expo.isExpoPushToken(token));
 
           if (validTokens.length === 0) return;
+
+          span.setAttribute("push.valid_token_count", validTokens.length);
 
           const messages = validTokens.map((token) => ({
             to: token,
@@ -41,9 +45,16 @@ class PushService {
                 ticket.status === "error" &&
                 ticket.details?.error === "DeviceNotRegistered"
               ) {
+                const targetToken = chunk[index]?.to;
+                if (!targetToken) return;
+
                 deviceRepository
-                  .deleteByToken(messages[index].to as string)
-                  .catch(() => {});
+                  .deleteByToken(targetToken)
+                  .catch((err) => {
+                    logger.warn("Failed to delete unregistered device token", {
+                      error: err instanceof Error ? err.message : String(err),
+                    });
+                  });
               }
             });
           }
@@ -52,6 +63,7 @@ class PushService {
             error: error instanceof Error ? error.message : String(error),
             userId,
           });
+          Sentry.captureException(error, { level: "warning" });
         }
       }
     );

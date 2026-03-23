@@ -131,6 +131,19 @@ jest.mock("../../lib/notification-logger", () => ({
   },
 }));
 
+jest.mock("../../services/google-maps.service", () => ({
+  __esModule: true,
+  default: {
+    validateAddress: jest.fn().mockResolvedValue({
+      validationStatus: "VALID",
+      validationGranularity: "PREMISE",
+      addressComplete: true,
+      formattedAddress: "123 Main St, New York, NY 10001, USA",
+    }),
+    getAutocompleteSuggestions: jest.fn().mockResolvedValue([]),
+  },
+}));
+
 jest.mock("expo-server-sdk", () => ({
   __esModule: true,
   Expo: jest.fn().mockImplementation(() => ({
