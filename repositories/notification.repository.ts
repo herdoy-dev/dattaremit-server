@@ -1,6 +1,7 @@
 import prismaClient from "../lib/prisma-client";
 import PrismaRepository from "./base.repository";
 import type { NotificationFilters } from "../schemas/notification.schema";
+import type { NotificationType } from "../generated/prisma/client";
 import { Prisma } from "../generated/prisma/client";
 
 const baseRepository = new PrismaRepository(prismaClient.notification);
@@ -53,7 +54,7 @@ class NotificationRepository {
 
   async create(data: {
     userId: string;
-    type: string;
+    type: NotificationType;
     title: string;
     body: string;
     metadata?: Record<string, unknown> | null;

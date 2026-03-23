@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/node";
-import { Expo } from "expo-server-sdk";
+import { Expo, type ExpoPushMessage } from "expo-server-sdk";
 import expoClient from "../lib/expo-client";
 import logger from "../lib/logger";
 import deviceRepository from "../repositories/device.repository";
@@ -7,7 +7,7 @@ import deviceRepository from "../repositories/device.repository";
 class PushService {
   async sendToUser(
     userId: string,
-    notification: { title: string; body: string; data?: object }
+    notification: { title: string; body: string; data?: Record<string, unknown> }
   ) {
     return Sentry.startSpan(
       { name: "push.sendToUser", op: "push", attributes: { "push.user_id": userId } },
@@ -26,7 +26,7 @@ class PushService {
 
           span.setAttribute("push.valid_token_count", validTokens.length);
 
-          const messages = validTokens.map((token) => ({
+          const messages: ExpoPushMessage[] = validTokens.map((token) => ({
             to: token,
             sound: "default" as const,
             title: notification.title,
@@ -46,7 +46,7 @@ class PushService {
                 ticket.details?.error === "DeviceNotRegistered"
               ) {
                 const targetToken = chunk[index]?.to;
-                if (!targetToken) return;
+                if (!targetToken || Array.isArray(targetToken)) return;
 
                 deviceRepository
                   .deleteByToken(targetToken)

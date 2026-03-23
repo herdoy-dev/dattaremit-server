@@ -92,17 +92,30 @@ class AddressService {
     const hasAddressFields =
       data.addressLine1 || data.city || data.state || data.country || data.postalCode;
 
+    const existingAddress = address as {
+      addressLine1: string;
+      addressLine2?: string | null;
+      city: string;
+      state: string;
+      country: "US" | "IN";
+      postalCode: string;
+    };
+
     const [updated, validation] = await Promise.all([
       addressRepository.update(id, data).then((r) => decryptNestedUser(r as { user?: unknown })),
       hasAddressFields
         ? googleMapsService
             .validateAddress({
-              addressLine1: data.addressLine1 || (address as Record<string, string>).addressLine1,
-              addressLine2: data.addressLine2 || (address as Record<string, string>).addressLine2,
-              city: data.city || (address as Record<string, string>).city,
-              state: data.state || (address as Record<string, string>).state,
-              country: (data.country || (address as Record<string, string>).country) as "US" | "IN",
-              postalCode: data.postalCode || (address as Record<string, string>).postalCode,
+              addressLine1: data.addressLine1 ?? existingAddress.addressLine1,
+              addressLine2:
+                data.addressLine2 ??
+                (existingAddress.addressLine2 === null
+                  ? undefined
+                  : existingAddress.addressLine2),
+              city: data.city ?? existingAddress.city,
+              state: data.state ?? existingAddress.state,
+              country: (data.country ?? existingAddress.country) as "US" | "IN",
+              postalCode: data.postalCode ?? existingAddress.postalCode,
             })
             .catch(() => ({ validationStatus: "UNAVAILABLE" as const }))
         : Promise.resolve(undefined),

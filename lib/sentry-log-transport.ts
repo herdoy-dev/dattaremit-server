@@ -13,7 +13,7 @@ export default class SentryLogTransport extends Transport {
     super(opts);
   }
 
-  log(info: Record<string, unknown>, callback: () => void) {
+  override log(info: Record<string, unknown>, callback: () => void) {
     const { level, message, timestamp, service, ...rest } = info;
     const method = LEVEL_METHOD_MAP[level as string] || "info";
 
