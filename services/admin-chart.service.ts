@@ -24,9 +24,13 @@ function setCache<T>(key: string, data: T): T {
   return data;
 }
 
+type ChartEntry = { type: string; count: number };
+type StatusChartEntry = { status: string; count: number };
+type RegistrationChartEntry = { month: string; count: number };
+
 class AdminChartService {
   async getDashboardStats() {
-    const cached = getCached<ReturnType<typeof this.getDashboardStats>>("dashboardStats");
+    const cached = getCached<Record<string, unknown>>("dashboardStats");
     if (cached) return cached;
 
     const [totalUsers, activeUsers, pendingKyc, totalActivities, recentUsers, recentActivities] =
@@ -57,7 +61,7 @@ class AdminChartService {
   }
 
   async getRegistrationChart() {
-    const cached = getCached<ReturnType<typeof this.getRegistrationChart>>("registrationChart");
+    const cached = getCached<RegistrationChartEntry[]>("registrationChart");
     if (cached) return cached;
 
     const result = await prismaClient.$queryRaw<
@@ -73,7 +77,7 @@ class AdminChartService {
   }
 
   async getActivityTypeChart() {
-    const cached = getCached<ReturnType<typeof this.getActivityTypeChart>>("activityTypeChart");
+    const cached = getCached<ChartEntry[]>("activityTypeChart");
     if (cached) return cached;
 
     const result = await prismaClient.$queryRaw<
@@ -89,7 +93,7 @@ class AdminChartService {
   }
 
   async getAccountStatusChart() {
-    const cached = getCached<ReturnType<typeof this.getAccountStatusChart>>("accountStatusChart");
+    const cached = getCached<StatusChartEntry[]>("accountStatusChart");
     if (cached) return cached;
 
     const result = await prismaClient.$queryRaw<
@@ -105,7 +109,7 @@ class AdminChartService {
   }
 
   async getKycActivityChart() {
-    const cached = getCached<ReturnType<typeof this.getKycActivityChart>>("kycActivityChart");
+    const cached = getCached<ChartEntry[]>("kycActivityChart");
     if (cached) return cached;
 
     const result = await prismaClient.$queryRaw<

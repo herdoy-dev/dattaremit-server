@@ -35,7 +35,7 @@ class AdminPromoterService {
           accountStatus: accountStatus || "ACTIVE",
           referCode,
           referValue,
-        },
+        } as Parameters<typeof tx.user.create>[0]["data"],
         include: { addresses: true },
       });
 

@@ -145,9 +145,8 @@ async function checkOrCreate<T>(
       throw error;
     }
 
-    // Handle unique constraint violation using Prisma's typed error
-    const { PrismaClientKnownRequestError } = await import("../generated/prisma/internal/prismaNamespace");
-    if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
+    // Handle unique constraint violation (P2002 = unique constraint)
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2002") {
       throw new AppError(
         409,
         "A request with this idempotency key is already in progress. Please retry later."

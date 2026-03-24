@@ -17,6 +17,7 @@
     // Best practices
     "strict": true,
     "skipLibCheck": true,
+    "types": ["bun", "jest"],
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,

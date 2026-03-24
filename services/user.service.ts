@@ -46,7 +46,7 @@ class UserService {
           dateOfBirth: dateOfBirth.toISOString(),
           referCode,
           ...(referredByCode ? { referredByCode } : {}),
-        },
+        } as Parameters<typeof tx.user.create>[0]["data"],
         include: { addresses: true },
       });
     });
