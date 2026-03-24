@@ -13,6 +13,7 @@ const REQUIRED_ENV_VARS = [
   "ZYNK_API_TOKEN",
   "ZYNK_WEBHOOK_SECRET",
   "RESEND_API_KEY",
+  "GOOGLE_MAPS_API_KEY",
 ] as const;
 
 const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
@@ -177,6 +178,9 @@ function logAndFlush(
 // Shutdown logging
 async function shutdown(reason: string, exitCode: number = 0) {
   await logAndFlush("error", `Server shutting down: ${reason}`);
+
+  // Flush buffered Sentry events before shutting down HTTP server
+  await Sentry.flush(2000);
 
   server.close(async () => {
     try {

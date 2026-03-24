@@ -25,9 +25,10 @@ class UserController {
       }
       const { clerkUserId, referredByCode: _referredByCode, ...updateData } = value;
       const updatedUser = await userService.update(existingUser.id, updateData);
-      return res
+      res
         .status(200)
         .json(new APIResponse(true, "Profile updated successfully", toPublicUser(updatedUser)));
+      return;
     }
 
     const user = await userService.create(value);

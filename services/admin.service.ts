@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
 import type { AccountStatus, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
@@ -129,7 +130,11 @@ class AdminService {
   }
 
   async createUser(data: AdminCreateUserInput, actingAdminId?: string) {
-    const { role, accountStatus, referValue, dateOfBirth, ...rest } = data;
+    return Sentry.startSpan(
+      { name: "admin.createUser", op: "db.transaction", attributes: { "admin.role": data.role || "USER" } },
+      async () => {
+    const { role, accountStatus, referValue, ...dataToEncrypt } = data;
+    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
 
     return prismaClient.$transaction(async (tx) => {
       await ensureEmailUnique(tx, data.email);
@@ -155,16 +160,60 @@ class AdminService {
         targetUserId: result.id,
       });
 
-      return result;
+      return decryptUserData(result);
     });
+      },
+    );
+  }
+
+  async createPromoter(data: AdminCreatePromoterInput, actingAdminId?: string) {
+    return Sentry.startSpan(
+      { name: "admin.createPromoter", op: "db.transaction", attributes: { "admin.role": data.role } },
+      async () => {
+    const { role, accountStatus, referValue, ...dataToEncrypt } = data;
+    const encryptedData = prepareEncryptedUserData(dataToEncrypt);
+
+    return prismaClient.$transaction(async (tx) => {
+      await ensureEmailUnique(tx, data.email);
+
+      const referCode = await generateUniquePromoterCode(
+        tx.user,
+        data.firstName,
+        data.lastName
+      );
+
+      const result = await tx.user.create({
+        data: {
+          ...(encryptedData as Parameters<typeof tx.user.create>[0]["data"]),
+          clerkUserId: `admin_created_${crypto.randomUUID()}`,
+          role,
+          accountStatus: accountStatus || "ACTIVE",
+          referCode,
+          referValue,
+        },
+        include: { addresses: true },
+      });
+
+      await logAdminAction(actingAdminId, `Admin created promoter ${result.id}`, {
+        action: "createPromoter",
+        targetUserId: result.id,
+        role,
+      });
+
+      return decryptUserData(result);
+    });
+      },
+    );
   }
 
   async updateUser(id: string, data: AdminUpdateUserInput, actingAdminId?: string) {
-    const { referValue, dateOfBirth, ...rest } = data;
-    const dataToUpdate: Record<string, unknown> = { ...rest };
-    if (dateOfBirth) {
-      dataToUpdate.dateOfBirth = dateOfBirth.toISOString();
-    }
+    return Sentry.startSpan(
+      { name: "admin.updateUser", op: "db.transaction", attributes: { "admin.target_user": id } },
+      async () => {
+    const { referValue, ...rest } = data;
+    const encryptedData = prepareEncryptedUserData(rest);
+
+    // Add referValue back if present (not encrypted)
     if (referValue !== undefined) {
       dataToUpdate.referValue = referValue;
     }
@@ -195,9 +244,14 @@ class AdminService {
 
       return result;
     });
+      },
+    );
   }
 
   async deleteUser(id: string, actingAdminId: string) {
+    return Sentry.startSpan(
+      { name: "admin.deleteUser", op: "db.transaction", attributes: { "admin.target_user": id } },
+      async () => {
     if (id === actingAdminId) {
       throw new AppError(400, "Cannot delete your own account");
     }
@@ -235,6 +289,8 @@ class AdminService {
       action: "deleteUser",
       targetUserId: id,
     });
+      },
+    );
   }
 
   async changeUserRole(id: string, role: UserRole, actingAdminId: string) {

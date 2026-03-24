@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import Joi from "joi";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
@@ -75,7 +75,7 @@ const ALLOWED_REDIRECT_HOSTS = new Set([
 ]);
 
 class ZynkController {
-  async createEntity(req: AuthRequest, res: Response, next: Function) {
+  async createEntity(req: AuthRequest, res: Response, next: NextFunction) {
     return withIdempotency(
       req,
       res,
@@ -155,7 +155,7 @@ class ZynkController {
       );
   });
 
-  async addExternalAccount(req: AuthRequest, res: Response, next: Function) {
+  async addExternalAccount(req: AuthRequest, res: Response, next: NextFunction) {
     return withIdempotency(
       req,
       res,
@@ -177,7 +177,7 @@ class ZynkController {
     );
   }
 
-  async addDepositAccount(req: AuthRequest, res: Response, next: Function) {
+  async addDepositAccount(req: AuthRequest, res: Response, next: NextFunction) {
     return withIdempotency(
       req,
       res,

@@ -1,5 +1,6 @@
 {
   "name": "dattapay-backend",
+  "version": "1.0.0",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -34,7 +35,7 @@
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@prisma/instrumentation": "^7.5.0",
-    "@sentry/node": "^10.43.0",
+    "@sentry/node": "^10.45.0",
     "@solana/web3.js": "^1.98.4",
     "@turnkey/crypto": "^2.8.8",
     "axios": "^1.13.2",
@@ -43,6 +44,7 @@
     "dotenv": "^17.2.3",
     "elliptic": "^6.6.1",
     "ethers": "^6.16.0",
+    "expo-server-sdk": "^6.1.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",

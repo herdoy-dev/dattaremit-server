@@ -1,12 +1,12 @@
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
+import prismaClient from "../lib/prisma-client";
 
 const app = createTestApp();
-const prismaClient = require("../lib/prisma-client").default;
 
 describe("GET /health", () => {
   it("should return healthy when database is connected", async () => {
-    prismaClient.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+    jest.mocked(prismaClient.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
 
     const res = await request(app).get("/health");
 
@@ -17,7 +17,7 @@ describe("GET /health", () => {
   });
 
   it("should return unhealthy when database is disconnected", async () => {
-    prismaClient.$queryRaw.mockRejectedValueOnce(new Error("Connection failed"));
+    jest.mocked(prismaClient.$queryRaw).mockRejectedValueOnce(new Error("Connection failed"));
 
     const res = await request(app).get("/health");
 

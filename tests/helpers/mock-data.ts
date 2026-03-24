@@ -106,3 +106,84 @@ export const validCreatePromoterBody = {
   role: "PROMOTER",
   referValue: 5,
 };
+
+export const mockNotification = {
+  id: "880e8400-e29b-41d4-a716-446655440000",
+  userId: mockUser.id,
+  type: "KYC_APPROVED" as const,
+  title: "KYC Approved",
+  body: "Your identity verification is complete.",
+  metadata: null,
+  isRead: false,
+  readAt: null,
+  created_at: new Date(),
+};
+
+export const mockReadNotification = {
+  ...mockNotification,
+  id: "880e8400-e29b-41d4-a716-446655440001",
+  isRead: true,
+  readAt: new Date(),
+};
+
+export const mockDevice = {
+  id: "990e8400-e29b-41d4-a716-446655440000",
+  userId: mockUser.id,
+  platform: "IOS" as const,
+  expoPushToken: "ExponentPushToken[test-token-123]",
+  deviceName: "iPhone 15",
+  lastActiveAt: new Date(),
+  created_at: new Date(),
+  updated_at: new Date(),
+};
+
+export const validRegisterDeviceBody = {
+  expoPushToken: "ExponentPushToken[test-token-123]",
+  platform: "IOS",
+  deviceName: "iPhone 15",
+};
+
+export const mockValidationResult = {
+  validationStatus: "VALID" as const,
+  validationGranularity: "PREMISE",
+  addressComplete: true,
+  formattedAddress: "123 Main St, Apt 4B, New York, NY 10001, USA",
+};
+
+export const mockValidationNeedsReview = {
+  validationStatus: "NEEDS_REVIEW" as const,
+  validationGranularity: "ROUTE",
+  addressComplete: false,
+  formattedAddress: "123 Main St, New York, NY 10001, USA",
+  corrections: [
+    { field: "subpremise", original: "(inferred)", corrected: "Apt 4B" },
+  ],
+};
+
+export const mockValidationUnavailable = {
+  validationStatus: "UNAVAILABLE" as const,
+};
+
+export const mockPlaceDetailsResult = {
+  street: "123 Main St",
+  city: "New York",
+  state: "New York",
+  postalCode: "10001",
+  country: "US",
+  formattedAddress: "123 Main St, New York, NY 10001, USA",
+};
+
+export const mockAutocompletePredictions = [
+  {
+    placeId: "ChIJOwg_06VPwokRYv534QaPC8g",
+    description: "123 Main Street, New York, NY, USA",
+    mainText: "123 Main Street",
+    secondaryText: "New York, NY, USA",
+  },
+  {
+    placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+    description: "123 Main Avenue, Brooklyn, NY, USA",
+    mainText: "123 Main Avenue",
+    secondaryText: "Brooklyn, NY, USA",
+  },
+];

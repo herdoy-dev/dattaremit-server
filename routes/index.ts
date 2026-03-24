@@ -2,6 +2,9 @@ import express from "express";
 import account from "./account.route";
 import activities from "./activity.routes";
 import addresses from "./address.routes";
+import devices from "./device.routes";
+import googleMaps from "./google-maps.routes";
+import notifications from "./notification.routes";
 import onboarding from "./onboarding.routes";
 import referral from "./referral.routes";
 import users from "./user.routes";
@@ -17,5 +20,8 @@ router.use("/onboarding", onboarding);
 router.use("/referral", referral);
 router.use("/zynk", dbUser, zynk);
 router.use("/activity", activities);
+router.use("/notifications", notifications);
+router.use("/devices", devices);
+router.use("/google-maps", googleMaps);
 
 export default router;

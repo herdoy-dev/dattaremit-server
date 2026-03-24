@@ -15,7 +15,7 @@ interface EmailOptions {
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   return Sentry.startSpan(
     { name: "email.send", op: "http.client", attributes: { "email.subject": options.subject } },
-    async () => {
+    async (span) => {
       try {
         await resend.emails.send({
           from: FROM_EMAIL,
@@ -23,8 +23,15 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
           subject: options.subject,
           html: options.html,
         });
+        span.setAttribute("email.status", "success");
+        Sentry.addBreadcrumb({
+          category: "email",
+          message: `Email sent: ${options.subject}`,
+          level: "info",
+        });
         return true;
       } catch (error) {
+        span.setAttribute("email.status", "failure");
         const atIndex = options.to.indexOf("@");
         const masked = atIndex > 2
           ? options.to.slice(0, 2) + "***" + options.to.slice(atIndex)

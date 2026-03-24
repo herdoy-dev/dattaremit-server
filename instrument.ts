@@ -1,4 +1,6 @@
 import * as Sentry from "@sentry/node";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { maskPii } from "./lib/pii";
 
 const dsn = process.env.SENTRY_DSN;
@@ -6,25 +8,64 @@ const dsn = process.env.SENTRY_DSN;
 if (dsn) {
   const isProduction = process.env.NODE_ENV === "production";
 
+  // Auto-detect release from package.json when SENTRY_RELEASE is not set
+  let release: string | undefined = process.env.SENTRY_RELEASE;
+  if (!release) {
+    try {
+      const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf-8"));
+      release = `dattaremit-server@${pkg.version}`;
+    } catch { /* fallback: no release */ }
+  }
+
   Sentry.init({
     dsn,
+    release,
     environment: process.env.NODE_ENV || "development",
-    release: process.env.SENTRY_RELEASE || undefined,
     sendDefaultPii: false,
-    tracesSampleRate: isProduction ? 0.3 : 1.0,
-    profileSessionSampleRate: isProduction ? 0.1 : 1.0,
-    profileLifecycle: 'trace',
 
-    integrations: [Sentry.prismaIntegration()],
+    integrations: [
+      Sentry.prismaIntegration(),
+    ],
 
-    // Only propagate trace headers to our own domains — not to
+    tracesSampler(samplingContext) {
+      // Respect parent sampling for distributed tracing continuity
+      if (samplingContext.parentSampled !== undefined) {
+        return samplingContext.parentSampled ? 1.0 : 0;
+      }
+
+      const name = samplingContext.name || "";
+
+      // Never trace health checks
+      if (name.includes("/health")) return 0;
+
+      // Always trace webhooks (financial operations)
+      if (name.includes("/webhook")) return 1.0;
+
+      // Higher rate for admin operations
+      if (name.includes("/admin")) return isProduction ? 0.5 : 1.0;
+
+      // Default
+      return isProduction ? 0.3 : 1.0;
+    },
+
+    // Only propagate trace headers to our own API domain — not to
     // Zynk, Resend, exchange-rate API, Clerk, or any other third party.
     tracePropagationTargets: [
-      /^https:\/\/(app|admin|refer)\.dattaremit\.com/,
+      /^https:\/\/api\.dattaremit\.com/,
       /^http:\/\/localhost/,
     ],
 
-    beforeSend(event) {
+    _experiments: { enableLogs: true },
+
+    beforeSend(event, hint) {
+      // Enrich AppError events with correct severity level and status tag
+      const error = hint?.originalException;
+      if (error && typeof error === "object" && "status" in error) {
+        const status = (error as { status: number }).status;
+        event.level = status >= 500 ? "error" : "warning";
+        event.tags = { ...event.tags, "error.status": String(status) };
+      }
+
       if (event.request?.data) {
         event.request.data = maskPii(event.request.data) as typeof event.request.data;
       }
@@ -55,16 +96,6 @@ if (dsn) {
         }
       }
       return event;
-    },
-
-    beforeBreadcrumb(breadcrumb) {
-      if (breadcrumb.data) {
-        breadcrumb.data = maskPii(breadcrumb.data) as typeof breadcrumb.data;
-      }
-      if (breadcrumb.message) {
-        breadcrumb.message = maskPii(breadcrumb.message) as string;
-      }
-      return breadcrumb;
     },
   });
 }

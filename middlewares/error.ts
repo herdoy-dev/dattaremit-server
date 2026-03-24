@@ -15,13 +15,13 @@ const error = (
   next: NextFunction
 ) => {
   if (err instanceof AppError) {
-    if (err.status >= 500 || err.status === 401 || err.status === 403) {
-      Sentry.captureException(err, {
-        level: err.status >= 500 ? "error" : "warning",
-        tags: { status: err.status, path: req.path },
-      });
-    }
-    return res.status(err.status).send(new APIResponse(false, err.message, undefined, err.code));
+    // Enrich scope so setupExpressErrorHandler's capture (which runs before
+    // this middleware) has correct level and tags — no manual captureException
+    // needed, avoiding duplicate events.
+    const level = err.status >= 500 ? "error" : "warning";
+    Sentry.getCurrentScope().setLevel(level);
+    Sentry.getCurrentScope().setTags({ "error.status": err.status, path: req.path, method: req.method });
+    return res.status(err.status).send(new APIResponse(false, err.message));
   }
   // setupExpressErrorHandler already captures non-AppError exceptions
   logger.error("Unexpected error", {
