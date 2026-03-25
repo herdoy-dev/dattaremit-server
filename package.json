@@ -26,7 +26,8 @@
     "debug": "bun --inspect run index.ts",
     "debug:wait": "bun --inspect-wait run index.ts",
     "test": "npx jest --forceExit --detectOpenHandles",
-    "test:watch": "npx jest --watch --forceExit --detectOpenHandles"
+    "test:watch": "npx jest --watch --forceExit --detectOpenHandles",
+    "troubleshoot": "bun run scripts/troubleshoot.ts"
   },
   "dependencies": {
     "@clerk/express": "^1.7.59",
