@@ -132,7 +132,10 @@ app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 app.get("/health", async (_req, res) => {
   try {
-    await prismaClient.$queryRaw`SELECT 1`;
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Health check DB query timed out")), 5000)
+    );
+    await Promise.race([prismaClient.$queryRaw`SELECT 1`, timeout]);
     res.status(200).json({ status: "ok" });
   } catch (err) {
     logger.error("Health check failed", { error: err });
@@ -158,6 +161,15 @@ const port = process.env.PORT || 5000;
 const server = app.listen(port, () =>
   logger.info(`Server running on http://localhost:${port}`),
 );
+
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    logger.error(`FATAL: Port ${port} is already in use`);
+  } else {
+    logger.error("FATAL: Server failed to start", { error: err.message });
+  }
+  process.exit(1);
+});
 
 // Helper to ensure log is written before continuing
 function logAndFlush(

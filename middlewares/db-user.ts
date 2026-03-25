@@ -18,7 +18,10 @@ const dbUser: RequestHandler = async (req, res, next) => {
     Sentry.getCurrentScope().setTag("user.account_status", user.accountStatus);
     next();
   } catch (error) {
-    next(error);
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(new AppError(500, "Failed to load user data. Please try again later."));
   }
 };
 

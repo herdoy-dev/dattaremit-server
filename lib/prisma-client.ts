@@ -35,8 +35,11 @@ const decryptField = (
 
   try {
     data[fieldName] = decrypt(value);
-  } catch {
-    logger.error("Field decryption failed");
+  } catch (error) {
+    logger.error(`Decryption failed for field "${fieldName}"`, {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    throw new Error(`Data integrity error: failed to decrypt field "${fieldName}"`);
   }
 };
 

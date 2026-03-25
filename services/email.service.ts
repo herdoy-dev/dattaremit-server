@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/node";
 import { Resend } from "resend";
+import AppError from "../lib/AppError";
 import logger from "../lib/logger";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -61,7 +62,7 @@ export const sendKycEmail = async (
   const name = escapeHtml(userName || "there");
   if (!kycLink.startsWith("https://")) {
     logger.error("KYC link rejected: invalid protocol", { link: kycLink.substring(0, 30) });
-    return false;
+    throw new AppError(500, "Unable to generate a secure verification link. Please try again later.");
   }
   const safeLink = escapeHtml(encodeURI(kycLink));
   return sendEmail({

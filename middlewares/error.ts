@@ -23,6 +23,20 @@ const error = (
     Sentry.getCurrentScope().setTags({ "error.status": err.status, path: req.path, method: req.method });
     return res.status(err.status).send(new APIResponse(false, err.message));
   }
+  // Handle Prisma errors with user-friendly messages
+  if (err.name === "PrismaClientKnownRequestError") {
+    const prismaErr = err as Error & { code: string };
+    if (prismaErr.code === "P2002") {
+      return res.status(409).send(new APIResponse(false, "A record with this information already exists."));
+    }
+    if (prismaErr.code === "P2025") {
+      return res.status(404).send(new APIResponse(false, "The requested record was not found."));
+    }
+    if (prismaErr.code === "P2003") {
+      return res.status(400).send(new APIResponse(false, "Invalid reference. A related record does not exist."));
+    }
+  }
+
   // setupExpressErrorHandler already captures non-AppError exceptions
   logger.error("Unexpected error", {
     error: err instanceof Error ? err.message : "Unknown error",

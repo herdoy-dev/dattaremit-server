@@ -46,8 +46,11 @@ class NotificationService {
   async markAsRead(id: string, userId: string) {
     try {
       return await notificationRepository.markAsRead(id, userId);
-    } catch {
-      throw new AppError(404, "Notification not found");
+    } catch (error) {
+      if ((error as any)?.code === "P2025") {
+        throw new AppError(404, "Notification not found.");
+      }
+      throw error;
     }
   }
 
@@ -58,8 +61,11 @@ class NotificationService {
   async delete(id: string, userId: string) {
     try {
       return await notificationRepository.deleteByIdAndUserId(id, userId);
-    } catch {
-      throw new AppError(404, "Notification not found");
+    } catch (error) {
+      if ((error as any)?.code === "P2025") {
+        throw new AppError(404, "Notification not found.");
+      }
+      throw error;
     }
   }
 }

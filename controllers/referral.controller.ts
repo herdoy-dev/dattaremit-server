@@ -9,10 +9,7 @@ class ReferralController {
   validateReferCode = asyncHandler(async (req: AuthRequest, res: Response) => {
     const { code } = req.body;
     if (!code || typeof code !== "string") {
-      res
-        .status(400)
-        .json(new APIResponse(false, "Referral code is required"));
-      return;
+      throw new AppError(400, "Referral code is required.");
     }
     const result = await userService.validateReferCode(code.trim().toUpperCase());
     res
