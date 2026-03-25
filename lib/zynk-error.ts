@@ -25,6 +25,15 @@ export function handleZynkError(error: unknown, defaultMessage: string): never {
     const SAFE_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429];
 
     if (zynkError?.error) {
+      const details = zynkError.error.details?.toLowerCase() ?? "";
+
+      if (details.includes("this phone already exists")) {
+        throw new AppError(409, "This phone number is already associated with an existing account. Please use a different phone number or contact support.");
+      }
+      if (details.includes("this email already exists")) {
+        throw new AppError(409, "This email address is already associated with an existing account. Please use a different email or contact support.");
+      }
+
       const safeStatus = SAFE_STATUS_CODES.includes(zynkError.error.code)
         ? zynkError.error.code : 502;
       throw new AppError(safeStatus, "An error occurred processing your request");
