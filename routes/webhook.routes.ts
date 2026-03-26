@@ -2,8 +2,10 @@ import * as Sentry from "@sentry/node";
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import express from "express";
+import { Webhook } from "svix";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
+import logger from "../lib/logger";
 import userRepository from "../repositories/user.repository";
 import { kycEventSchema, type KYCEvent } from "../schemas/webhook.schema";
 import activityLogger from "../lib/activity-logger";
@@ -189,6 +191,80 @@ router.post(
       },
     );
   }
+);
+
+router.post(
+  "/clerk-webhook",
+  async (req: Request, res: Response, next: NextFunction) => {
+    return Sentry.startSpan(
+      { name: "webhook.clerk", op: "webhook" },
+      async () => {
+        try {
+          const secret = process.env.CLERK_WEBHOOK_SECRET;
+          if (!secret) {
+            logger.warn("Clerk webhook received but CLERK_WEBHOOK_SECRET is not configured");
+            return res.status(200).json(new APIResponse(true, "Webhook not configured"));
+          }
+
+          const svixId = req.headers["svix-id"] as string;
+          const svixTimestamp = req.headers["svix-timestamp"] as string;
+          const svixSignature = req.headers["svix-signature"] as string;
+
+          if (!svixId || !svixTimestamp || !svixSignature) {
+            return res.status(401).json(new APIResponse(false, "Missing webhook signature headers"));
+          }
+
+          const wh = new Webhook(secret);
+          const body = (req as any).rawBody
+            ? (req as any).rawBody.toString("utf8")
+            : JSON.stringify(req.body);
+
+          let event: { type: string; data: Record<string, unknown> };
+          try {
+            event = wh.verify(body, {
+              "svix-id": svixId,
+              "svix-timestamp": svixTimestamp,
+              "svix-signature": svixSignature,
+            }) as typeof event;
+          } catch {
+            return res.status(401).json(new APIResponse(false, "Invalid webhook signature"));
+          }
+
+          if (event.type !== "user.updated") {
+            return res.status(200).json(new APIResponse(true, "Event ignored"));
+          }
+
+          // Clerk includes updated_fields array indicating which fields changed
+          const updatedFields = (event.data as any).updated_fields as string[] | undefined;
+          if (!updatedFields?.includes("password")) {
+            return res.status(200).json(new APIResponse(true, "Event ignored"));
+          }
+
+          const clerkUserId = event.data.id as string;
+          if (!clerkUserId) {
+            return res.status(200).json(new APIResponse(true, "Event ignored"));
+          }
+
+          const user = await userRepository.findByClerkUserId(clerkUserId);
+          if (!user) {
+            logger.warn("Clerk webhook: user not found", { clerkUserId });
+            return res.status(200).json(new APIResponse(true, "User not found"));
+          }
+
+          notificationLogger.notify({
+            userId: user.id,
+            type: NotificationType.PASSWORD_CHANGED,
+            title: "Password Changed",
+            body: "Your password was recently changed. If this wasn't you, please contact support immediately.",
+          });
+
+          return res.status(200).json(new APIResponse(true, "Password change notification sent"));
+        } catch (error) {
+          return next(error);
+        }
+      },
+    );
+  },
 );
 
 export default router;

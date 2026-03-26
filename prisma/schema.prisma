@@ -184,6 +184,8 @@ enum NotificationType {
   PROMOTIONAL
   SYSTEM_ALERT
   REFERRAL_BONUS
+  PROFILE_UPDATED
+  PASSWORD_CHANGED
 
   @@map("notification_type")
 }

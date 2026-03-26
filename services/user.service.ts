@@ -1,8 +1,10 @@
 import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
+import notificationLogger from "../lib/notification-logger";
 import prismaClient from "../lib/prisma-client";
 import { generateUniqueUserReferCode } from "../lib/refer-code";
 import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
+import { NotificationType } from "../generated/prisma/client";
 import userRepository from "../repositories/user.repository";
 import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema";
 
@@ -61,7 +63,7 @@ class UserService {
       dataToUpdate.dateOfBirth = dateOfBirth.toISOString();
     }
 
-    return prismaClient.$transaction(async (tx) => {
+    const updatedUser = await prismaClient.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id },
         include: { addresses: true },
@@ -82,6 +84,18 @@ class UserService {
         include: { addresses: true },
       });
     });
+
+    // Only notify for post-onboarding updates (skip INITIAL status)
+    if ((updatedUser as any).accountStatus !== "INITIAL") {
+      notificationLogger.notify({
+        userId: id,
+        type: NotificationType.PROFILE_UPDATED,
+        title: "Profile Updated",
+        body: "Your profile information has been successfully updated.",
+      });
+    }
+
+    return updatedUser;
   }
 
   async validateReferCode(code: string) {

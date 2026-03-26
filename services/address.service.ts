@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
+import notificationLogger from "../lib/notification-logger";
 import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import { NotificationType } from "../generated/prisma/client";
 import addressRepository from "../repositories/address.repository";
 import type {
   CreateAddressInput,
@@ -70,6 +72,13 @@ class AddressService {
         .catch(() => ({ validationStatus: "UNAVAILABLE" as const })),
     ]);
 
+    notificationLogger.notify({
+      userId: data.userId,
+      type: NotificationType.PROFILE_UPDATED,
+      title: "Address Updated",
+      body: "Your address information has been successfully updated.",
+    });
+
     return { ...address, validation };
       },
     );
@@ -120,6 +129,13 @@ class AddressService {
             .catch(() => ({ validationStatus: "UNAVAILABLE" as const }))
         : Promise.resolve(undefined),
     ]);
+
+    notificationLogger.notify({
+      userId,
+      type: NotificationType.PROFILE_UPDATED,
+      title: "Address Updated",
+      body: "Your address information has been successfully updated.",
+    });
 
     return validation ? { ...updated, validation } : updated;
       },

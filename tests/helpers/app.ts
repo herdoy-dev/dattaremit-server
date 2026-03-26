@@ -23,6 +23,8 @@ const prismaEnums = {
     TRANSACTION_FAILED: "TRANSACTION_FAILED",
     PROMOTIONAL: "PROMOTIONAL", SYSTEM_ALERT: "SYSTEM_ALERT",
     REFERRAL_BONUS: "REFERRAL_BONUS",
+    PROFILE_UPDATED: "PROFILE_UPDATED",
+    PASSWORD_CHANGED: "PASSWORD_CHANGED",
   },
   DevicePlatform: { IOS: "IOS", ANDROID: "ANDROID" },
 };
@@ -149,6 +151,12 @@ jest.mock("expo-server-sdk", () => ({
   Expo: jest.fn().mockImplementation(() => ({
     chunkPushNotifications: jest.fn().mockReturnValue([]),
     sendPushNotificationsAsync: jest.fn().mockResolvedValue([]),
+  })),
+}));
+
+jest.mock("svix", () => ({
+  Webhook: jest.fn().mockImplementation(() => ({
+    verify: jest.fn(),
   })),
 }));
 
