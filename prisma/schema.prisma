@@ -32,7 +32,9 @@ model User {
   addresses     Address[]
   activities    Activity[]
   notifications Notification[]
-  devices       UserDevice[]
+  devices              UserDevice[]
+  sentTransactions     Transaction[] @relation("sentTransactions")
+  receivedTransactions Transaction[] @relation("receivedTransactions")
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
 
@@ -227,4 +229,48 @@ model UserDevice {
 
   @@index([userId])
   @@map("user_devices")
+}
+
+enum TransactionStatus {
+  SIMULATED
+  ACCEPTED
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("transaction_status")
+}
+
+model Transaction {
+  id                String            @id @default(uuid()) @db.Uuid
+  senderId          String            @db.Uuid
+  sender            User              @relation("sentTransactions", fields: [senderId], references: [id], onDelete: Restrict)
+  receiverId        String            @db.Uuid
+  receiver          User              @relation("receivedTransactions", fields: [receiverId], references: [id], onDelete: Restrict)
+
+  zynkTransactionId String            @unique
+  zynkExecutionId   String?
+
+  sendAmount        Decimal           @db.Decimal(18, 6)
+  sendCurrency      String            @default("USD")
+  receiveAmount     Decimal?          @db.Decimal(18, 6)
+  receiveCurrency   String            @default("INR")
+  exchangeRate      Decimal?          @db.Decimal(18, 6)
+  totalFees         Decimal?          @db.Decimal(18, 6)
+  feeCurrency       String?           @default("USD")
+
+  status            TransactionStatus @default(SIMULATED)
+  depositMemo       String?
+  simulateResponse  Json?
+  transferResponse  Json?
+  failureReason     String?
+
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([created_at])
+  @@map("transactions")
 }

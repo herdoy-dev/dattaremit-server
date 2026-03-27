@@ -67,6 +67,47 @@ export const zynkEnableExternalAccountResponseSchema = Joi.object({
   }).required(),
 });
 
+// Schema for simulate transaction response
+const feeItemSchema = Joi.object({
+  amount: Joi.number().required(),
+  currency: Joi.string().required(),
+});
+
+export const zynkSimulateResponseSchema = Joi.object({
+  success: Joi.boolean().required(),
+  data: Joi.object({
+    executionId: Joi.string().required(),
+    quote: Joi.object({
+      inAmount: feeItemSchema.required(),
+      outAmount: feeItemSchema.required(),
+      exchangeRate: Joi.object({
+        rate: Joi.number().required(),
+        conversion: Joi.string().required(),
+      }).required(),
+      fees: Joi.object({
+        partnerFees: feeItemSchema.required(),
+        zynkGasFees: feeItemSchema.required(),
+        zynkNetworkFees: feeItemSchema.required(),
+        infraProviderFees: feeItemSchema.required(),
+        bankingFees: feeItemSchema.required(),
+        txFees: feeItemSchema.required(),
+        totalFees: feeItemSchema.required(),
+      }).required(),
+    }).required(),
+    validUntil: Joi.string().required(),
+    message: Joi.string().required(),
+    depositAccount: Joi.object().unknown(true).optional(),
+  }).required(),
+});
+
+// Schema for transfer response
+export const zynkTransferResponseSchema = Joi.object({
+  success: Joi.boolean().required(),
+  data: Joi.object({
+    message: Joi.string().required(),
+  }).required(),
+});
+
 // Schema for Plaid link token response
 export const zynkPlaidLinkTokenResponseSchema = Joi.object({
   plaid_token: Joi.string().required(),

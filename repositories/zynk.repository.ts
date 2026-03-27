@@ -10,6 +10,8 @@ import {
   zynkAddExternalAccountResponseSchema,
   zynkEnableExternalAccountResponseSchema,
   zynkPlaidLinkTokenResponseSchema,
+  zynkSimulateResponseSchema,
+  zynkTransferResponseSchema,
 } from "../schemas/zynk-response.schema";
 
 interface ZynkEntityAddress {
@@ -125,6 +127,52 @@ interface ZynkEnableExternalAccountResponse {
 
 interface ZynkPlaidLinkTokenResponse {
   plaid_token: string;
+}
+
+interface ZynkSimulateData {
+  transactionId: string;
+  fromEntityId: string;
+  fromAccountId: string;
+  toEntityId: string;
+  toAccountId: string;
+  exactAmountIn: number;
+  depositMemo?: string;
+}
+
+interface ZynkSimulateResponse {
+  success: boolean;
+  data: {
+    executionId: string;
+    quote: {
+      inAmount: { amount: number; currency: string };
+      outAmount: { amount: number; currency: string };
+      exchangeRate: { rate: number; conversion: string };
+      fees: {
+        partnerFees: { amount: number; currency: string };
+        zynkGasFees: { amount: number; currency: string };
+        zynkNetworkFees: { amount: number; currency: string };
+        infraProviderFees: { amount: number; currency: string };
+        bankingFees: { amount: number; currency: string };
+        txFees: { amount: number; currency: string };
+        totalFees: { amount: number; currency: string };
+      };
+    };
+    validUntil: string;
+    message: string;
+    depositAccount: Record<string, unknown>;
+  };
+}
+
+interface ZynkTransferData {
+  executionId: string;
+  transferAcknowledgement: "ACCEPTED";
+}
+
+interface ZynkTransferResponse {
+  success: boolean;
+  data: {
+    message: string;
+  };
 }
 
 class ZynkRepository {
@@ -302,6 +350,42 @@ class ZynkRepository {
     }
   }
 
+  async simulateTransaction(
+    data: ZynkSimulateData,
+  ): Promise<ZynkSimulateResponse> {
+    try {
+      const response = await zynkClient.post<ZynkSimulateResponse>(
+        "/api/v1/transformer/transaction/simulate",
+        data,
+      );
+      return validateZynkResponse<ZynkSimulateResponse>(
+        response.data,
+        zynkSimulateResponseSchema,
+        "Failed to simulate transaction",
+      );
+    } catch (error) {
+      handleZynkError(error, "Failed to simulate transaction");
+    }
+  }
+
+  async executeTransfer(
+    data: ZynkTransferData,
+  ): Promise<ZynkTransferResponse> {
+    try {
+      const response = await zynkClient.post<ZynkTransferResponse>(
+        "/api/v1/transformer/transaction/transfer",
+        data,
+      );
+      return validateZynkResponse<ZynkTransferResponse>(
+        response.data,
+        zynkTransferResponseSchema,
+        "Failed to execute transfer",
+      );
+    } catch (error) {
+      handleZynkError(error, "Failed to execute transfer");
+    }
+  }
+
   async generatePlaidLinkToken(
     entityId: string,
     options?: { androidPackageName?: string; redirectUri?: string },
@@ -354,4 +438,8 @@ export type {
   ZynkAddExternalAccountResponse,
   ZynkEnableExternalAccountResponse,
   ZynkPlaidLinkTokenResponse,
+  ZynkSimulateData,
+  ZynkSimulateResponse,
+  ZynkTransferData,
+  ZynkTransferResponse,
 };
