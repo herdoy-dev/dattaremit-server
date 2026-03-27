@@ -56,6 +56,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.DO_SSH_USERNAME }}@${{ secrets.DO_SSH_HOST }} << 'ENDSSH'
           set -e
+          export PATH="$HOME/.nvm/versions/node/v24.13.1/bin:$PATH"
           cd /home/appuser/dattaremit-server
           bun install --frozen-lockfile
           bunx prisma migrate deploy
