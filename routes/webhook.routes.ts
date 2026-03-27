@@ -219,7 +219,7 @@ router.post(
             ? (req as any).rawBody.toString("utf8")
             : JSON.stringify(req.body);
 
-          let event: { type: string; data: Record<string, unknown> };
+          let event: { type: string; data: Record<string, unknown>; timestamp: number };
           try {
             event = wh.verify(body, {
               "svix-id": svixId,
@@ -234,9 +234,14 @@ router.post(
             return res.status(200).json(new APIResponse(true, "Event ignored"));
           }
 
-          // Clerk includes updated_fields array indicating which fields changed
-          const updatedFields = (event.data as any).updated_fields as string[] | undefined;
-          if (!updatedFields?.includes("password")) {
+          const passwordLastUpdatedAt = event.data.password_last_updated_at as number | undefined;
+          const eventTimestamp = event.timestamp;
+          const isPasswordChange =
+            passwordLastUpdatedAt != null &&
+            eventTimestamp != null &&
+            Math.abs(passwordLastUpdatedAt - eventTimestamp) < 60000;
+
+          if (!isPasswordChange) {
             return res.status(200).json(new APIResponse(true, "Event ignored"));
           }
 

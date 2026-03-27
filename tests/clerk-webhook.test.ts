@@ -90,7 +90,13 @@ describe("POST /api/clerk-webhook", () => {
     Webhook.mockImplementationOnce(() => ({
       verify: jest.fn().mockReturnValue({
         type: "user.updated",
-        data: { id: "user_123", updated_fields: ["first_name", "last_name"] },
+        timestamp: 1700000000000,
+        data: {
+          id: "user_123",
+          password_enabled: true,
+          password_last_updated_at: 1699000000000,
+          updated_at: 1700000000000,
+        },
       }),
     }));
 
@@ -106,13 +112,16 @@ describe("POST /api/clerk-webhook", () => {
     expect(notificationLogger.notify).not.toHaveBeenCalled();
   });
 
-  it("should send password change notification when password is in updated_fields", async () => {
+  it("should send password change notification when password was recently changed", async () => {
     Webhook.mockImplementationOnce(() => ({
       verify: jest.fn().mockReturnValue({
         type: "user.updated",
+        timestamp: 1700000000000,
         data: {
           id: "user_test123",
-          updated_fields: ["password"],
+          password_enabled: true,
+          password_last_updated_at: 1700000000000,
+          updated_at: 1700000000000,
         },
       }),
     }));
@@ -136,13 +145,41 @@ describe("POST /api/clerk-webhook", () => {
     });
   });
 
+  it("should ignore user.updated events when password_last_updated_at is absent", async () => {
+    Webhook.mockImplementationOnce(() => ({
+      verify: jest.fn().mockReturnValue({
+        type: "user.updated",
+        timestamp: 1700000000000,
+        data: {
+          id: "user_123",
+          password_enabled: false,
+          updated_at: 1700000000000,
+        },
+      }),
+    }));
+
+    const res = await request(app)
+      .post("/api/clerk-webhook")
+      .set("svix-id", "msg_123")
+      .set("svix-timestamp", "1234567890")
+      .set("svix-signature", "v1,valid")
+      .send({ type: "user.updated", data: {} });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Event ignored");
+    expect(notificationLogger.notify).not.toHaveBeenCalled();
+  });
+
   it("should return 200 when user is not found in database", async () => {
     Webhook.mockImplementationOnce(() => ({
       verify: jest.fn().mockReturnValue({
         type: "user.updated",
+        timestamp: 1700000005000,
         data: {
           id: "user_unknown",
-          updated_fields: ["password"],
+          password_enabled: true,
+          password_last_updated_at: 1700000005000,
+          updated_at: 1700000005000,
         },
       }),
     }));
