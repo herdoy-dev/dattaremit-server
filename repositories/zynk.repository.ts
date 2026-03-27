@@ -256,7 +256,7 @@ class ZynkRepository {
         {
           jurisdictionID: jurisdictionId,
           type: "deposit",
-          ownershipType: "first_party",
+          ownershipType: "third_party",
           bankAccountType: bankAccountTypeMap[data.bankAccountType] || "saving",
           account: {
             bankDetails: {
