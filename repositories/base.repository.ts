@@ -1,5 +1,8 @@
 // Loosely typed delegate so we can accept Prisma's generated delegates
 // without fighting their generic signatures. We only call known CRUD methods.
+
+// This is a base repository
+
 type PrismaDelegate<Model, Include = undefined> = {
   findMany: (args?: any) => Promise<Model[]>;
   findUnique: (args: any) => Promise<Model | null>;
