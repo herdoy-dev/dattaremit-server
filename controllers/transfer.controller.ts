@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
+import asyncHandler from "../lib/async-handler";
 import validate from "../lib/validate";
 import {
   withIdempotency,
@@ -12,6 +13,23 @@ import transferService from "../services/transfer.service";
 import userRepository from "../repositories/user.repository";
 
 class TransferController {
+  getReceiveInfo = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const user = req.user;
+
+    if (!user.zynkDepositAccountId) {
+      throw new AppError(400, "No deposit account linked. Please add your bank account first.");
+    }
+
+    res.status(200).json(
+      new APIResponse(true, "Receive info retrieved successfully", {
+        accountId: user.zynkDepositAccountId,
+        email: user.email,
+        phone: `${user.phoneNumberPrefix}${user.phoneNumber}`,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+      }),
+    );
+  });
+
   async send(req: AuthRequest, res: Response, next: NextFunction) {
     return withIdempotency(
       req,

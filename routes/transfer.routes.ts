@@ -6,6 +6,11 @@ import { sensitiveRateLimit } from "../middlewares/strict-rate-limit";
 
 const router = express.Router();
 
+router.get(
+  "/receive-info",
+  transferController.getReceiveInfo as RequestHandler,
+);
+
 router.post(
   "/send",
   isApproved,
