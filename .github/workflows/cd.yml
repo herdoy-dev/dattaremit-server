@@ -1,16 +1,16 @@
 name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    # Only deploy after CI passes
-    needs: []
-    if: github.ref == 'refs/heads/main'
+    if: github.event.workflow_run.conclusion == 'success'
 
     steps:
       - uses: actions/checkout@v4
@@ -24,41 +24,41 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Generate Prisma client
-        run: bunx prisma generate
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DO_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Run tests
-        run: bun run test
+      - name: Deploy files via rsync
+        run: |
+          rsync -azP --delete \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='tests/' \
+            --exclude='.env*' \
+            --exclude='generated/' \
+            --exclude='coverage/' \
+            --exclude='front_end/' \
+            --exclude='cf-worker/' \
+            --exclude='docs/' \
+            --exclude='.DS_Store' \
+            --exclude='.idea' \
+            --exclude='.claude' \
+            --exclude='.agent/' \
+            --exclude='.agents/' \
+            --exclude='details_for_prod/' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ ${{ secrets.DO_SSH_USERNAME }}@${{ secrets.DO_SSH_HOST }}:/home/appuser/dattaremit-server/
 
-      - name: Run database migrations
-        run: bunx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      # TODO: Add your deployment step here
-      # Examples:
-      #
-      # Railway:
-      # - name: Deploy to Railway
-      #   uses: bervProject/railway-deploy@v1
-      #   with:
-      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
-      #     service: dattaremit-server
-      #
-      # Render:
-      # - name: Deploy to Render
-      #   run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
-      #
-      # AWS EC2/ECS:
-      # - name: Deploy to AWS
-      #   uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: us-east-1
-      #
-      # Docker + any hosting:
-      # - name: Build and push Docker image
-      #   run: |
-      #     docker build -t dattaremit-server .
-      #     docker push ${{ secrets.DOCKER_REGISTRY }}/dattaremit-server:latest
+      - name: Install dependencies and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DO_SSH_USERNAME }}@${{ secrets.DO_SSH_HOST }} << 'ENDSSH'
+          set -e
+          cd /home/appuser/dattaremit-server
+          bun install --frozen-lockfile
+          bunx prisma migrate deploy
+          bunx prisma generate
+          pm2 restart all --update-env
+          ENDSSH

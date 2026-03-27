@@ -1,3 +1,7 @@
+
+
+// This is a address repository
+
 import prismaClient from "../lib/prisma-client";
 import PrismaRepository from "./base.repository";
 import type {

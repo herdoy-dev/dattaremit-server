@@ -2,6 +2,12 @@
 node_modules
 generated
 
+Remitance APP Flow
+cf-worker/
+docs/
+front_end/
+users.csv
+
 # output
 out
 dist
@@ -38,3 +44,13 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 /lib/generated/prisma
+
+.agent/
+.agents/
+CONSOLIDATED_SECURITY_FINDINGS.md
+dattaremit_outstanding_security_issues_03:09.md
+details_for_prod
+outstanding_security_issues_0310.md
+outstanding_security_issues_0316.md
+skills-lock.json
+tests/security.test.ts
