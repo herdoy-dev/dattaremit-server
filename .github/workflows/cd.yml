@@ -59,7 +59,13 @@ jobs:
           export PATH="$HOME/.nvm/versions/node/v24.13.1/bin:$PATH"
           cd /home/appuser/dattaremit-server
           bun install --frozen-lockfile
-          bunx prisma migrate deploy
+
+          # Apply migrations only if they are pending
+          bunx prisma migrate status > /dev/null 2>&1 || {
+            echo "Pending migrations detected — applying..."
+            bunx prisma migrate deploy
+          }
+
           bunx prisma generate
           pm2 restart all --update-env
           ENDSSH
