@@ -13,6 +13,7 @@ skills-lock.json
 out
 dist
 *.tgz
+package-lock.json
 
 # code coverage
 coverage
