@@ -135,12 +135,11 @@ class AdminController {
   });
 
   previewReferCode = asyncHandler(async (req: Request, res: Response) => {
-    const firstName = req.query.firstName as string;
-    const lastName = req.query.lastName as string;
-
-    if (!firstName || !lastName) {
-      throw new AppError(400, "firstName and lastName are required");
-    }
+    const previewSchema = Joi.object({
+      firstName: Joi.string().trim().min(1).max(50).required(),
+      lastName: Joi.string().trim().min(1).max(50).required(),
+    });
+    const { firstName, lastName } = validate(previewSchema, req.query);
 
     const result = await adminPromoterService.previewReferCode(firstName, lastName);
     res
@@ -189,7 +188,7 @@ class AdminController {
 
   changeUserRole = asyncHandler(async (req: Request, res: Response) => {
     const id = validateUUID(req.params.id as string);
-    const value = validate(changeRoleSchema, req.body, { stripUnknown: false });
+    const value = validate(changeRoleSchema, req.body);
 
     const actingAdminId = (req as AuthRequest).user.id;
     const user = await adminService.changeUserRole(id, value.role as UserRole, actingAdminId);

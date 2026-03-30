@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/node";
 import type { AuthRequest } from "./auth";
 import userService from "../services/user.service";
 import AppError from "../lib/AppError";
+import logger from "../lib/logger";
 
 const dbUser: RequestHandler = async (req, res, next) => {
   try {
@@ -10,6 +11,9 @@ const dbUser: RequestHandler = async (req, res, next) => {
     const user = await userService.getByClerkUserId(authReq.user.clerkUserId);
 
     if (!user) {
+      logger.warn("dbUser: user not found for clerkUserId", {
+        clerkUserId: authReq.user.clerkUserId,
+      });
       throw new AppError(404, "User not found. Please create an account first.");
     }
 

@@ -26,7 +26,8 @@ class ExchangeRateService {
 
         try {
           const response = await fetch(
-            "https://open.er-api.com/v6/latest/USD"
+            "https://open.er-api.com/v6/latest/USD",
+            { signal: AbortSignal.timeout(10_000) }
           );
 
           if (!response.ok) {

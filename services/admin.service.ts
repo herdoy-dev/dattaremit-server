@@ -10,10 +10,6 @@ import type { AdminCreateUserInput, AdminUpdateUserInput } from "../schemas/admi
 import activityLogger from "../lib/activity-logger";
 
 
-function escapeIlike(str: string): string {
-  return str.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
-
 async function logAdminAction(
   actingAdminId: string | undefined,
   description: string,
@@ -48,10 +44,9 @@ class AdminService {
     }
 
     if (search) {
-      const sanitized = escapeIlike(search);
       where.OR = [
-        { firstName: { contains: sanitized, mode: "insensitive" } },
-        { lastName: { contains: sanitized, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
       ];
     }
 

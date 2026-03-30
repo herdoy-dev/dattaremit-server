@@ -24,7 +24,7 @@ describe("POST /api/clerk-webhook", () => {
     delete process.env.CLERK_WEBHOOK_SECRET;
   });
 
-  it("should return 200 when CLERK_WEBHOOK_SECRET is not configured", async () => {
+  it("should return 500 when CLERK_WEBHOOK_SECRET is not configured", async () => {
     delete process.env.CLERK_WEBHOOK_SECRET;
 
     const res = await request(app)
@@ -34,7 +34,7 @@ describe("POST /api/clerk-webhook", () => {
       .set("svix-signature", "v1,signature")
       .send({ type: "user.updated", data: {} });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(500);
     expect(notificationLogger.notify).not.toHaveBeenCalled();
   });
 

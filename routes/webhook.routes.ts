@@ -50,7 +50,7 @@ function verifyWebhookSignature(
   // Use raw body if available to avoid JSON re-serialization issues,
   // otherwise fall back to re-serialized payload
   const bodyForHmac = rawBody
-    ? rawBody.toString("utf8").replace(/}$/, `,"signedAt":"${timestamp}"}`)
+    ? rawBody.toString("utf8").trimEnd().replace(/}$/, `,"signedAt":"${timestamp}"}`)
     : JSON.stringify({ ...payload, signedAt: timestamp });
   const expectedSignature = crypto
     .createHmac("sha256", secret)
@@ -200,11 +200,7 @@ router.post(
       { name: "webhook.clerk", op: "webhook" },
       async () => {
         try {
-          const secret = process.env.CLERK_WEBHOOK_SECRET;
-          if (!secret) {
-            logger.warn("Clerk webhook received but CLERK_WEBHOOK_SECRET is not configured");
-            return res.status(200).json(new APIResponse(true, "Webhook not configured"));
-          }
+          const secret = process.env.CLERK_WEBHOOK_SECRET!;
 
           const svixId = req.headers["svix-id"] as string;
           const svixTimestamp = req.headers["svix-timestamp"] as string;
