@@ -3,35 +3,12 @@ import { ActivityStatus, ActivityType, NotificationType } from "../generated/pri
 import activityLogger from "../lib/activity-logger";
 import notificationLogger from "../lib/notification-logger";
 import AppError from "../lib/AppError";
-import { encrypt, decrypt, isEncrypted } from "../lib/crypto";
 import recipientRepository from "../repositories/recipient.repository";
 import zynkRepository from "../repositories/zynk.repository";
 import type { ZynkEntityData } from "../repositories/zynk.repository";
 import { sendKycEmail } from "./email.service";
 import logger from "../lib/logger";
 import type { CreateRecipientInput, AddRecipientBankInput } from "../schemas/recipient.schema";
-
-function encryptRecipientData(data: Record<string, unknown>): Record<string, unknown> {
-  const encrypted = { ...data };
-  if (encrypted.phoneNumber && typeof encrypted.phoneNumber === "string" && !isEncrypted(encrypted.phoneNumber)) {
-    encrypted.phoneNumber = encrypt(encrypted.phoneNumber as string);
-  }
-  if (encrypted.phoneNumberPrefix && typeof encrypted.phoneNumberPrefix === "string" && !isEncrypted(encrypted.phoneNumberPrefix)) {
-    encrypted.phoneNumberPrefix = encrypt(encrypted.phoneNumberPrefix as string);
-  }
-  return encrypted;
-}
-
-function decryptRecipientData<T extends Record<string, unknown>>(recipient: T): T {
-  if (!recipient) return recipient;
-  const decrypted = { ...recipient } as Record<string, unknown>;
-  for (const field of ["phoneNumber", "phoneNumberPrefix"]) {
-    if (decrypted[field] && typeof decrypted[field] === "string" && isEncrypted(decrypted[field] as string)) {
-      decrypted[field] = decrypt(decrypted[field] as string);
-    }
-  }
-  return decrypted as T;
-}
 
 const INTERNAL_RECIPIENT_FIELDS = [
   "zynkEntityId",
@@ -63,8 +40,7 @@ class RecipientService {
           ? (data.dateOfBirth as Date).toISOString()
           : String(data.dateOfBirth);
 
-        // Create recipient record (phone fields encrypted)
-        const recipientData = encryptRecipientData({
+        const recipient = await recipientRepository.create({
           createdByUserId: userId,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -80,8 +56,6 @@ class RecipientService {
           country: "IN",
           postalCode: data.postalCode,
         });
-
-        const recipient = await recipientRepository.create(recipientData);
 
         // Create Zynk entity for recipient
         const entityData: ZynkEntityData = {
@@ -135,8 +109,7 @@ class RecipientService {
           metadata: { recipientId: recipient.id, zynkEntityId },
         });
 
-        const decrypted = decryptRecipientData(recipient as unknown as Record<string, unknown>);
-        return toPublicRecipient(decrypted);
+        return toPublicRecipient(recipient as unknown as Record<string, unknown>);
       },
     );
   }
@@ -144,7 +117,7 @@ class RecipientService {
   async getRecipients(userId: string) {
     const recipients = await recipientRepository.findAllByUserId(userId);
     return recipients.map((r) =>
-      toPublicRecipient(decryptRecipientData(r as unknown as Record<string, unknown>))
+      toPublicRecipient(r as unknown as Record<string, unknown>)
     );
   }
 
@@ -156,7 +129,7 @@ class RecipientService {
     if ((recipient as any).createdByUserId !== userId) {
       throw new AppError(404, "Recipient not found");
     }
-    return toPublicRecipient(decryptRecipientData(recipient as unknown as Record<string, unknown>));
+    return toPublicRecipient(recipient as unknown as Record<string, unknown>);
   }
 
   async addBankAccount(userId: string, recipientId: string, data: AddRecipientBankInput) {
@@ -215,7 +188,7 @@ class RecipientService {
           body: `${r.firstName}'s Indian bank account has been successfully linked. You can now send money.`,
         });
 
-        return toPublicRecipient(decryptRecipientData(updated as unknown as Record<string, unknown>));
+        return toPublicRecipient(updated as unknown as Record<string, unknown>);
       },
     );
   }

@@ -115,8 +115,6 @@ jest.mock("../../services/email.service", () => ({
 jest.mock("../../lib/crypto", () => ({
   __esModule: true,
   sha256: jest.fn().mockResolvedValue("mocked-hash"),
-  encrypt: jest.fn((val: string) => `encrypted:${val}`),
-  decrypt: jest.fn((val: string) => val.replace("encrypted:", "")),
 }));
 
 jest.mock("../../lib/activity-logger", () => ({

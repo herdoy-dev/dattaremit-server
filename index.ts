@@ -8,7 +8,6 @@ dotenv.config();
 const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
   "CLERK_SECRET_KEY",
-  "ENCRYPTION_KEY",
   "ZYNK_API_BASE_URL",
   "ZYNK_API_TOKEN",
   "ZYNK_WEBHOOK_SECRET",
@@ -21,13 +20,6 @@ const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
 if (missingVars.length > 0) {
   console.error(
     `FATAL: Missing required environment variables: ${missingVars.join(", ")}`,
-  );
-  process.exit(1);
-}
-
-if (!/^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY!)) {
-  console.error(
-    "FATAL: ENCRYPTION_KEY must be exactly 64 hexadecimal characters.",
   );
   process.exit(1);
 }

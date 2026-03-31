@@ -61,7 +61,6 @@ function checkPort(port: number): Promise<boolean> {
 const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
   "CLERK_SECRET_KEY",
-  "ENCRYPTION_KEY",
   "ZYNK_API_BASE_URL",
   "ZYNK_API_TOKEN",
   "ZYNK_WEBHOOK_SECRET",
@@ -86,15 +85,6 @@ async function checkEnvVars(): Promise<CheckResult> {
       name: "Environment Variables",
       status: "fail",
       message: `Missing required: ${missingRequired.join(", ")}`,
-    };
-  }
-
-  // Validate ENCRYPTION_KEY format
-  if (!/^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY!)) {
-    return {
-      name: "Environment Variables",
-      status: "fail",
-      message: "ENCRYPTION_KEY must be exactly 64 hex characters",
     };
   }
 

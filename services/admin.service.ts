@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/node";
 import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client";
 import type { AccountStatus, UserRole } from "../generated/prisma/client";
 import AppError from "../lib/AppError";
-import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import crypto from "crypto";
 import { generateUniqueUserReferCode } from "../lib/refer-code";
 import { ensureEmailUnique, ensureEmailUniqueForUpdate } from "../lib/email-validator";
@@ -118,7 +118,7 @@ class AdminService {
     ]);
 
     return {
-      activities: activities.map(decryptNestedUser),
+      activities,
       total,
       page,
       limit,

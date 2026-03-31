@@ -1,5 +1,5 @@
 import { Prisma } from "../generated/prisma/client";
-import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -56,7 +56,7 @@ class AdminChartService {
       pendingKyc,
       totalActivities,
       recentUsers,
-      recentActivities: recentActivities.map(decryptNestedUser),
+      recentActivities,
     });
   }
 

@@ -4,7 +4,7 @@ import activityLogger from "../lib/activity-logger";
 import notificationLogger from "../lib/notification-logger";
 import AppError from "../lib/AppError";
 import { toPublicUser } from "../lib/dto";
-import prismaClient, { decryptUserData } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import userRepository from "../repositories/user.repository";
 import type {
   ZynkEntityData,
@@ -46,7 +46,7 @@ class ZynkService {
 
         // If entity already exists, return the user as-is (idempotent)
         if (currentUser.zynkEntityId) {
-          return toPublicUser(decryptUserData(currentUser));
+          return toPublicUser(currentUser);
         }
 
         if (!currentUser.addresses || currentUser.addresses.length === 0) {
@@ -111,7 +111,7 @@ class ZynkService {
           data: { endpoint: "entity/create" },
         });
 
-        return toPublicUser(decryptUserData(updatedUser!));
+        return toPublicUser(updatedUser!);
       },
     );
   }
@@ -245,7 +245,7 @@ class ZynkService {
           body: "Your US bank account has been successfully linked.",
         });
 
-        return toPublicUser(decryptUserData(updatedUser!));
+        return toPublicUser(updatedUser!);
       },
     );
   }
@@ -316,7 +316,7 @@ class ZynkService {
           body: "Your Indian bank account has been successfully linked.",
         });
 
-        return toPublicUser(decryptUserData(updatedUser!));
+        return toPublicUser(updatedUser!);
       },
     );
   }

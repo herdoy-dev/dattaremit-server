@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import AppError from "../lib/AppError";
 import notificationLogger from "../lib/notification-logger";
-import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import { NotificationType } from "../generated/prisma/client";
 import addressRepository from "../repositories/address.repository";
 import type {
@@ -13,7 +13,7 @@ import googleMapsService from "./google-maps.service";
 class AddressService {
   async getAllByUserId(userId: string) {
     const addresses = await addressRepository.findAllByUserId(userId);
-    return addresses.map((a) => decryptNestedUser(a as { user?: unknown }));
+    return addresses;
   }
 
   async getById(id: string) {
@@ -21,7 +21,7 @@ class AddressService {
     if (!address) {
       throw new AppError(404, "Address not found");
     }
-    return decryptNestedUser(address as { user?: unknown });
+    return address;
   }
 
   async create(data: CreateAddressInput) {
@@ -50,7 +50,7 @@ class AddressService {
             data: updateFields,
             include: { user: true },
           });
-          return decryptNestedUser(updated);
+          return updated;
         }
 
         const address = await tx.address.create({
@@ -58,7 +58,7 @@ class AddressService {
           include: { user: true },
         });
 
-        return decryptNestedUser(address);
+        return address;
       }),
       googleMapsService
         .validateAddress({
@@ -111,7 +111,7 @@ class AddressService {
     };
 
     const [updated, validation] = await Promise.all([
-      addressRepository.update(id, data).then((r) => decryptNestedUser(r as { user?: unknown })),
+      addressRepository.update(id, data),
       hasAddressFields
         ? googleMapsService
             .validateAddress({

@@ -2,7 +2,7 @@ import type { Response } from "express";
 import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import asyncHandler from "../lib/async-handler";
-import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import validate from "../lib/validate";
 import type { AuthRequest } from "../middlewares/auth";
 import userRepository from "../repositories/user.repository";
@@ -102,7 +102,7 @@ class OnboardingController {
       }
 
       return {
-        address: decryptNestedUser(address as { user?: unknown }),
+        address,
         entityCreated,
       };
     });

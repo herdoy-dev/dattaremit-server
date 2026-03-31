@@ -1,5 +1,5 @@
 import AppError from "../lib/AppError";
-import prismaClient, { decryptNestedUser } from "../lib/prisma-client";
+import prismaClient from "../lib/prisma-client";
 import activityRepository from "../repositories/activity.repository";
 import type {
   CreateActivityInput,
@@ -65,7 +65,7 @@ class ActivityService {
         include: { user: true },
       });
 
-      return decryptNestedUser(activity);
+      return activity;
     });
   }
 

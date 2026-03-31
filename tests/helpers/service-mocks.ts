@@ -184,9 +184,6 @@ jest.mock("../../lib/prisma-client", () => ({
       update: jest.fn(),
     },
   },
-  decryptNestedUser: jest.fn((obj: unknown) => obj),
-  decryptUserData: jest.fn((obj: unknown) => obj),
-  encryptUserData: jest.fn((obj: unknown) => obj),
 }));
 
 // Typed mock references
