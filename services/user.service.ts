@@ -74,7 +74,7 @@ class UserService {
       }
 
       if (data.email) {
-        await ensureEmailUniqueForUpdate(tx, data.email, user.emailHash);
+        await ensureEmailUniqueForUpdate(tx, data.email, user.email);
       }
 
       // Prisma extension handles encryption/decryption automatically

@@ -2,7 +2,6 @@ import { Prisma, ActivityStatus, ActivityType } from "../generated/prisma/client
 import AppError from "../lib/AppError";
 import prismaClient from "../lib/prisma-client";
 import crypto from "crypto";
-import { createSearchHash } from "../lib/crypto";
 import { generateUniquePromoterReferCode } from "../lib/refer-code";
 import { ensureEmailUnique } from "../lib/email-validator";
 import type { AdminCreatePromoterInput } from "../schemas/admin.schema";
@@ -138,12 +137,11 @@ class AdminPromoterService {
 
     if (search) {
       const searchPattern = `%${escapeIlike(search)}%`;
-      const emailHash = createSearchHash(search);
       whereClause = Prisma.sql`WHERE u."referCode" IS NOT NULL AND (
         u."firstName" ILIKE ${searchPattern} OR
         u."lastName" ILIKE ${searchPattern} OR
         u."referCode" ILIKE ${searchPattern} OR
-        u."emailHash" = ${emailHash}
+        u."email" ILIKE ${searchPattern}
       )`;
     }
 

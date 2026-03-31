@@ -23,9 +23,9 @@ class RecipientRepository {
     });
   }
 
-  async findByUserIdAndEmailHash(userId: string, emailHash: string) {
+  async findByUserIdAndEmail(userId: string, email: string) {
     return baseRepository.findUnique({
-      createdByUserId_emailHash: { createdByUserId: userId, emailHash },
+      createdByUserId_email: { createdByUserId: userId, email },
     });
   }
 

@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client";
-import { createSearchHash, decrypt, encrypt, isEncrypted } from "./crypto";
+import { decrypt, encrypt, isEncrypted } from "./crypto";
 import logger from "./logger";
 
 const connectionString = `${process.env.DATABASE_URL}`;
@@ -44,28 +44,11 @@ const decryptField = (
 };
 
 /**
- * Convert dateOfBirth value to string format for encryption
- */
-const convertDateToString = (value: unknown): string => {
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "string" && !isEncrypted(value)) return value;
-  return "";
-};
-
-/**
  * Type-safe wrapper for encrypting Prisma args data
  * Encapsulates type casting to satisfy SonarQube S4325
  */
 const encryptPrismaData = <T>(data: T): T => {
   return encryptUserData(data as Record<string, unknown>) as T;
-};
-
-/**
- * Type-safe wrapper for transforming Prisma where clause
- * Encapsulates type casting to satisfy SonarQube S4325
- */
-const transformPrismaWhere = <T>(where: T): T => {
-  return transformEmailWhere(where as Record<string, unknown>) as T;
 };
 
 const adapter = new PrismaPg({
@@ -87,37 +70,16 @@ const basePrismaClient = new PrismaClient({
   },
 });
 
-// Note: firstName and lastName are intentionally NOT encrypted because they are used in:
-// - Admin search queries (Prisma `contains` with case-insensitive mode)
-// - Raw SQL queries in admin.service.ts (dashboard charts, referral stats)
-// - Encrypting these fields would require HMAC-based search indexes and rewriting all raw SQL queries.
-// Fields encrypted: email, phoneNumber, phoneNumberPrefix, dateOfBirth, nationality
+// Fields encrypted: phoneNumber, phoneNumberPrefix, nationality
 
 /**
  * Encrypt sensitive fields before saving to database
- * Refactored to reduce cognitive complexity (SonarQube S3776)
  */
 export const encryptUserData = <T extends Record<string, unknown>>(
   data: T
 ): T => {
   const encrypted = { ...data } as Record<string, unknown>;
 
-  // Encrypt email and generate hash for lookups
-  const email = encrypted.email;
-  if (email && typeof email === "string" && !isEncrypted(email)) {
-    encrypted.emailHash = createSearchHash(email);
-    encrypted.email = encrypt(email);
-  }
-
-  // Encrypt dateOfBirth (convert Date to ISO string if needed)
-  if (encrypted.dateOfBirth) {
-    const dateString = convertDateToString(encrypted.dateOfBirth);
-    if (dateString) {
-      encrypted.dateOfBirth = encrypt(dateString);
-    }
-  }
-
-  // Encrypt other sensitive fields using helper
   encryptField(encrypted, "phoneNumber");
   encryptField(encrypted, "phoneNumberPrefix");
   encryptField(encrypted, "nationality");
@@ -134,9 +96,6 @@ export const decryptUserData = <T>(user: T): T => {
 
   const decrypted = { ...user } as Record<string, unknown>;
 
-  // Decrypt all sensitive fields using helper
-  decryptField(decrypted, "email");
-  decryptField(decrypted, "dateOfBirth");
   decryptField(decrypted, "phoneNumber");
   decryptField(decrypted, "phoneNumberPrefix");
   decryptField(decrypted, "nationality");
@@ -167,22 +126,6 @@ const decryptQueryResult = <T>(result: T): T => {
   }
 
   return decryptUserData(result);
-};
-
-/**
- * Transform email lookup to use emailHash
- * Fixed: Removed unnecessary type assertion (SonarQube S4325)
- */
-const transformEmailWhere = <T extends Record<string, unknown>>(
-  where: T
-): T => {
-  if (where?.email && typeof where.email === "string") {
-    const transformed = { ...where } as Record<string, unknown>;
-    transformed.emailHash = createSearchHash(where.email);
-    delete transformed.email;
-    return transformed as T;
-  }
-  return where;
 };
 
 // Prisma Client Extension for automatic encryption/decryption
@@ -226,37 +169,22 @@ const prismaClient = basePrismaClient.$extends({
         return decryptUserData(result);
       },
       async findUnique({ args, query }) {
-        if (args.where) {
-          args.where = transformPrismaWhere(args.where);
-        }
         const result = await query(args);
         return decryptUserData(result);
       },
       async findUniqueOrThrow({ args, query }) {
-        if (args.where) {
-          args.where = transformPrismaWhere(args.where);
-        }
         const result = await query(args);
         return decryptUserData(result);
       },
       async findFirst({ args, query }) {
-        if (args.where) {
-          args.where = transformPrismaWhere(args.where);
-        }
         const result = await query(args);
         return decryptUserData(result);
       },
       async findFirstOrThrow({ args, query }) {
-        if (args.where) {
-          args.where = transformPrismaWhere(args.where);
-        }
         const result = await query(args);
         return decryptUserData(result);
       },
       async findMany({ args, query }) {
-        if (args.where) {
-          args.where = transformPrismaWhere(args.where);
-        }
         const result = await query(args);
         return decryptQueryResult(result);
       },

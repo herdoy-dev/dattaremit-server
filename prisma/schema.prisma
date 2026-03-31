@@ -15,11 +15,10 @@ model User {
   zynkExternalAccountId String?
   zynkDepositAccountId  String?
   lastName              String
-  email                 String // Encrypted email
-  emailHash             String  @unique // HMAC-SHA256 hash for lookups
+  email                 String  @unique
   phoneNumberPrefix     String
   phoneNumber           String
-  dateOfBirth           String // Encrypted date of birth (stored as ISO string)
+  dateOfBirth           String
   nationality           String?
 
   referCode       String?       @unique
@@ -108,7 +107,6 @@ model Recipient {
   firstName            String
   lastName             String
   email                String
-  emailHash            String
   phoneNumberPrefix    String
   phoneNumber          String
   dateOfBirth          String
@@ -137,7 +135,7 @@ model Recipient {
 
   @@index([createdByUserId])
   @@index([zynkEntityId])
-  @@unique([createdByUserId, emailHash])
+  @@unique([createdByUserId, email])
   @@map("recipients")
 }
 

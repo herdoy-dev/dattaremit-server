@@ -4,7 +4,6 @@
  */
 
 const INTERNAL_USER_FIELDS = [
-  "emailHash",
   "zynkEntityId",
   "zynkExternalAccountId",
   "zynkDepositAccountId",

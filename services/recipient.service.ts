@@ -3,7 +3,7 @@ import { ActivityStatus, ActivityType, NotificationType } from "../generated/pri
 import activityLogger from "../lib/activity-logger";
 import notificationLogger from "../lib/notification-logger";
 import AppError from "../lib/AppError";
-import { encrypt, createSearchHash, decrypt, isEncrypted } from "../lib/crypto";
+import { encrypt, decrypt, isEncrypted } from "../lib/crypto";
 import recipientRepository from "../repositories/recipient.repository";
 import zynkRepository from "../repositories/zynk.repository";
 import type { ZynkEntityData } from "../repositories/zynk.repository";
@@ -13,13 +13,6 @@ import type { CreateRecipientInput, AddRecipientBankInput } from "../schemas/rec
 
 function encryptRecipientData(data: Record<string, unknown>): Record<string, unknown> {
   const encrypted = { ...data };
-  if (encrypted.email && typeof encrypted.email === "string" && !isEncrypted(encrypted.email)) {
-    encrypted.emailHash = createSearchHash(encrypted.email as string);
-    encrypted.email = encrypt(encrypted.email as string);
-  }
-  if (encrypted.dateOfBirth && typeof encrypted.dateOfBirth === "string" && !isEncrypted(encrypted.dateOfBirth)) {
-    encrypted.dateOfBirth = encrypt(encrypted.dateOfBirth as string);
-  }
   if (encrypted.phoneNumber && typeof encrypted.phoneNumber === "string" && !isEncrypted(encrypted.phoneNumber)) {
     encrypted.phoneNumber = encrypt(encrypted.phoneNumber as string);
   }
@@ -32,7 +25,7 @@ function encryptRecipientData(data: Record<string, unknown>): Record<string, unk
 function decryptRecipientData<T extends Record<string, unknown>>(recipient: T): T {
   if (!recipient) return recipient;
   const decrypted = { ...recipient } as Record<string, unknown>;
-  for (const field of ["email", "dateOfBirth", "phoneNumber", "phoneNumberPrefix"]) {
+  for (const field of ["phoneNumber", "phoneNumberPrefix"]) {
     if (decrypted[field] && typeof decrypted[field] === "string" && isEncrypted(decrypted[field] as string)) {
       decrypted[field] = decrypt(decrypted[field] as string);
     }
@@ -41,7 +34,6 @@ function decryptRecipientData<T extends Record<string, unknown>>(recipient: T): 
 }
 
 const INTERNAL_RECIPIENT_FIELDS = [
-  "emailHash",
   "zynkEntityId",
   "kycLink",
 ] as const;
@@ -62,22 +54,16 @@ class RecipientService {
       { name: "recipient.create", op: "function" },
       async () => {
         // Check for duplicate
-        const emailHash = createSearchHash(data.email);
-        const existing = await recipientRepository.findByUserIdAndEmailHash(userId, emailHash);
+        const existing = await recipientRepository.findByUserIdAndEmail(userId, data.email);
         if (existing) {
           throw new AppError(409, "A recipient with this email already exists");
         }
 
-        // Keep plaintext email for KYC email sending before encryption
-        const plainEmail = data.email;
-        const plainFirstName = data.firstName;
-        const plainPhonePrefix = data.phoneNumberPrefix;
-        const plainPhone = data.phoneNumber;
-        const plainDob = typeof data.dateOfBirth === "object"
+        const dob = typeof data.dateOfBirth === "object"
           ? (data.dateOfBirth as Date).toISOString()
           : String(data.dateOfBirth);
 
-        // Create recipient record with encrypted data
+        // Create recipient record (phone fields encrypted)
         const recipientData = encryptRecipientData({
           createdByUserId: userId,
           firstName: data.firstName,
@@ -85,7 +71,7 @@ class RecipientService {
           email: data.email,
           phoneNumberPrefix: data.phoneNumberPrefix,
           phoneNumber: data.phoneNumber,
-          dateOfBirth: plainDob,
+          dateOfBirth: dob,
           nationality: "IN",
           addressLine1: data.addressLine1,
           addressLine2: data.addressLine2 || null,
@@ -99,12 +85,12 @@ class RecipientService {
 
         // Create Zynk entity for recipient
         const entityData: ZynkEntityData = {
-          email: plainEmail,
+          email: data.email,
           firstName: data.firstName,
           lastName: data.lastName || " ",
-          phoneNumberPrefix: plainPhonePrefix.replace("+", ""),
-          phoneNumber: plainPhone,
-          dateOfBirth: plainDob,
+          phoneNumberPrefix: data.phoneNumberPrefix.replace("+", ""),
+          phoneNumber: data.phoneNumber,
+          dateOfBirth: dob,
           nationality: "IN",
           permanentAddress: {
             addressLine1: data.addressLine1,
@@ -132,9 +118,9 @@ class RecipientService {
         // Send KYC email to recipient
         if (kycResponse.data.kycLink) {
           const emailSent = await sendKycEmail(
-            plainEmail,
+            data.email,
             kycResponse.data.kycLink,
-            plainFirstName,
+            data.firstName,
           );
           if (!emailSent) {
             logger.warn(`KYC email failed to send to recipient ${recipient.id}`);
@@ -261,9 +247,8 @@ class RecipientService {
         kycLink: kycResponse.data.kycLink,
       });
 
-      const decrypted = decryptRecipientData(r as Record<string, unknown>);
       const emailSent = await sendKycEmail(
-        decrypted.email as string,
+        r.email,
         kycResponse.data.kycLink,
         r.firstName,
       );
