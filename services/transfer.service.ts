@@ -10,16 +10,25 @@ import AppError from "../lib/AppError";
 import prismaClient from "../lib/prisma-client";
 import zynkRepository from "../repositories/zynk.repository";
 
+interface RecipientRecord {
+  id: string;
+  firstName: string;
+  lastName: string;
+  zynkEntityId: string | null;
+  zynkDepositAccountId: string | null;
+  createdByUserId: string;
+}
+
 class TransferService {
-  async sendMoney(
+  async sendMoneyToRecipient(
     senderId: string,
-    receiverId: string,
+    recipient: RecipientRecord,
     amount: number,
     note?: string,
   ) {
     return Sentry.startSpan(
       {
-        name: "transfer.sendMoney",
+        name: "transfer.sendMoneyToRecipient",
         op: "http.client",
         attributes: { "transfer.amount": amount },
       },
@@ -38,14 +47,8 @@ class TransferService {
           );
         }
 
-        // Validate receiver (IN user with deposit account)
-        const receiver = await prismaClient.user.findUnique({
-          where: { id: receiverId },
-        });
-        if (!receiver) {
-          throw new AppError(404, "Recipient not found");
-        }
-        if (!receiver.zynkEntityId || !receiver.zynkDepositAccountId) {
+        // Validate recipient
+        if (!recipient.zynkEntityId || !recipient.zynkDepositAccountId) {
           throw new AppError(
             400,
             "Recipient does not have a linked bank account.",
@@ -60,19 +63,19 @@ class TransferService {
           transactionId: zynkTransactionId,
           fromEntityId: sender.zynkEntityId,
           fromAccountId: sender.zynkExternalAccountId,
-          toEntityId: receiver.zynkEntityId,
-          toAccountId: receiver.zynkDepositAccountId,
+          toEntityId: recipient.zynkEntityId,
+          toAccountId: recipient.zynkDepositAccountId,
           exactAmountIn: amount,
           depositMemo: note,
         });
 
         const { executionId, quote } = simulateResponse.data;
 
-        // Save transaction with SIMULATED status
+        // Save transaction with SIMULATED status (recipientId instead of receiverId)
         const transaction = await prismaClient.transaction.create({
           data: {
             senderId,
-            receiverId,
+            recipientId: recipient.id,
             zynkTransactionId,
             zynkExecutionId: executionId,
             sendAmount: amount,
@@ -109,30 +112,14 @@ class TransferService {
             userId: senderId,
             type: ActivityType.TRANSFER,
             status: ActivityStatus.COMPLETE,
-            description: `Sent $${amount} to ${receiver.firstName}`,
+            description: `Sent $${amount} to ${recipient.firstName}`,
             amount: amount,
             referenceId: transaction.id,
             metadata: {
               zynkTransactionId,
               executionId,
-              receiverId,
-              receiverName: receiver.firstName,
-            },
-          });
-
-          // Log activity for receiver
-          activityLogger.logActivity({
-            userId: receiverId,
-            type: ActivityType.DEPOSIT,
-            status: ActivityStatus.COMPLETE,
-            description: `Received ${quote.outAmount.currency} ${quote.outAmount.amount} from ${sender.firstName}`,
-            amount: quote.outAmount.amount,
-            referenceId: transaction.id,
-            metadata: {
-              zynkTransactionId,
-              executionId,
-              senderId,
-              senderName: sender.firstName,
+              recipientId: recipient.id,
+              recipientName: recipient.firstName,
             },
           });
 
@@ -141,15 +128,7 @@ class TransferService {
             userId: senderId,
             type: NotificationType.TRANSACTION_INITIATED,
             title: "Money Sent",
-            body: `$${amount} has been sent to ${receiver.firstName}. The recipient will receive ${quote.outAmount.currency} ${quote.outAmount.amount}.`,
-          });
-
-          // Notify receiver
-          notificationLogger.notify({
-            userId: receiverId,
-            type: NotificationType.TRANSACTION_INITIATED,
-            title: "Money Received",
-            body: `${sender.firstName} sent you ${quote.outAmount.currency} ${quote.outAmount.amount}.`,
+            body: `$${amount} has been sent to ${recipient.firstName}. The recipient will receive ${quote.outAmount.currency} ${quote.outAmount.amount}.`,
           });
 
           Sentry.addBreadcrumb({

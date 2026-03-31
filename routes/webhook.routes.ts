@@ -7,6 +7,7 @@ import APIResponse from "../lib/APIResponse";
 import AppError from "../lib/AppError";
 import logger from "../lib/logger";
 import userRepository from "../repositories/user.repository";
+import recipientRepository from "../repositories/recipient.repository";
 import { kycEventSchema, type KYCEvent } from "../schemas/webhook.schema";
 import activityLogger from "../lib/activity-logger";
 import notificationLogger from "../lib/notification-logger";
@@ -138,8 +139,59 @@ router.post(
       const user = await userRepository.findByZynkEntityId(
         body.eventObject.entityId
       );
-      if (!user) throw new AppError(404, "User not found");
 
+      // If not a user, check if it's a recipient entity
+      if (!user) {
+        const recipient = await recipientRepository.findByZynkEntityId(
+          body.eventObject.entityId
+        );
+        if (!recipient) throw new AppError(404, "Entity not found");
+
+        const r = recipient as any;
+        const isApprovedEvent =
+          body.eventStatus === "approved" || body.eventObject.status === "approved";
+
+        if (isApprovedEvent) {
+          await recipientRepository.update(r.id, { kycStatus: "APPROVED" });
+          await activityLogger.logActivity({
+            userId: r.createdByUserId,
+            type: ActivityType.KYC_APPROVED,
+            status: ActivityStatus.COMPLETE,
+            description: `Recipient ${r.firstName} KYC approved`,
+            metadata: body,
+          });
+          notificationLogger.notify({
+            userId: r.createdByUserId,
+            type: NotificationType.KYC_APPROVED,
+            title: "Recipient KYC Approved",
+            body: `${r.firstName}'s identity verification is complete. You can now add their bank details.`,
+          });
+        } else {
+          const isRejected = body.eventStatus === "rejected";
+          await recipientRepository.update(r.id, {
+            kycStatus: isRejected ? "REJECTED" : "FAILED",
+          });
+          await activityLogger.logActivity({
+            userId: r.createdByUserId,
+            type: isRejected ? ActivityType.KYC_REJECTED : ActivityType.KYC_FAILED,
+            status: ActivityStatus.FAILED,
+            description: `Recipient ${r.firstName} KYC ${isRejected ? "rejected" : "failed"}`,
+            metadata: body,
+          });
+          notificationLogger.notify({
+            userId: r.createdByUserId,
+            type: isRejected ? NotificationType.KYC_REJECTED : NotificationType.KYC_FAILED,
+            title: isRejected ? "Recipient KYC Rejected" : "Recipient KYC Failed",
+            body: isRejected
+              ? `${r.firstName}'s identity verification was not approved.`
+              : `${r.firstName}'s identity verification encountered an issue.`,
+          });
+        }
+
+        return res.status(200).json(new APIResponse(true, "Success"));
+      }
+
+      // Handle user KYC events (existing flow)
       if (
         body.eventStatus !== "approved" &&
         body.eventObject.status !== "approved"

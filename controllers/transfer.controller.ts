@@ -10,7 +10,7 @@ import {
 import type { AuthRequest } from "../middlewares/auth";
 import { sendTransferSchema } from "../schemas/transfer.schema";
 import transferService from "../services/transfer.service";
-import userRepository from "../repositories/user.repository";
+import recipientRepository from "../repositories/recipient.repository";
 
 class TransferController {
   getReceiveInfo = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -37,22 +37,25 @@ class TransferController {
       next,
       { operation: "transfer:send" },
       async (): Promise<IdempotentHandlerResult<unknown>> => {
-        const { contactId, amountCents, note } = validate(
+        const { recipientId, amountCents, note } = validate(
           sendTransferSchema,
           req.body,
         );
 
         const amount = amountCents / 100;
 
-        // Look up receiver
-        const receiver = await userRepository.findById(contactId);
-        if (!receiver) {
+        // Look up recipient and verify ownership
+        const recipient = await recipientRepository.findById(recipientId);
+        if (!recipient) {
+          throw new AppError(404, "Recipient not found");
+        }
+        if ((recipient as any).createdByUserId !== req.user.id) {
           throw new AppError(404, "Recipient not found");
         }
 
-        const result = await transferService.sendMoney(
+        const result = await transferService.sendMoneyToRecipient(
           req.user.id,
-          receiver.id,
+          recipient as any,
           amount,
           note,
         );

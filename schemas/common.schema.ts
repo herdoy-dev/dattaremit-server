@@ -44,9 +44,9 @@ export const dateOfBirthField = Joi.date().iso().max("now").messages({
   "any.required": "Date of birth is required",
 });
 
-export const nationalityField = Joi.string().trim().valid("US", "IN").messages({
+export const nationalityField = Joi.string().trim().valid("US").messages({
   "string.empty": "Nationality cannot be empty",
-  "any.only": "Nationality must be US or IN",
+  "any.only": "Nationality must be US",
 });
 
 export const uuidIdParamSchema = (label: string) =>

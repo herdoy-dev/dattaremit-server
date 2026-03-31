@@ -1,9 +1,9 @@
 import Joi from "joi";
 
 export const sendTransferSchema = Joi.object({
-  contactId: Joi.string().uuid().required().messages({
-    "string.guid": "Contact ID must be a valid UUID",
-    "any.required": "Contact ID is required",
+  recipientId: Joi.string().uuid().required().messages({
+    "string.guid": "Recipient ID must be a valid UUID",
+    "any.required": "Recipient ID is required",
   }),
   amountCents: Joi.number().integer().min(100).max(1000000).required().messages({
     "number.base": "Amount must be a number",
@@ -18,7 +18,7 @@ export const sendTransferSchema = Joi.object({
 });
 
 export interface SendTransferInput {
-  contactId: string;
+  recipientId: string;
   amountCents: number;
   note?: string;
 }

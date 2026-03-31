@@ -33,6 +33,7 @@ model User {
   activities    Activity[]
   notifications Notification[]
   devices              UserDevice[]
+  recipients           Recipient[]   @relation("userRecipients")
   sentTransactions     Transaction[] @relation("sentTransactions")
   receivedTransactions Transaction[] @relation("receivedTransactions")
   created_at    DateTime      @default(now())
@@ -88,6 +89,56 @@ enum AccountStatus {
   DELETED
 
   @@map("account_status")
+}
+
+enum RecipientKycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FAILED
+
+  @@map("recipient_kyc_status")
+}
+
+model Recipient {
+  id                   String              @id @default(uuid()) @db.Uuid
+  createdByUserId      String              @db.Uuid
+  createdByUser        User                @relation("userRecipients", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  firstName            String
+  lastName             String
+  email                String
+  emailHash            String
+  phoneNumberPrefix    String
+  phoneNumber          String
+  dateOfBirth          String
+
+  nationality          String              @default("IN")
+  addressLine1         String
+  addressLine2         String?
+  city                 String
+  state                String
+  country              String              @default("IN")
+  postalCode           String
+
+  zynkEntityId         String?
+  zynkDepositAccountId String?
+  kycStatus            RecipientKycStatus  @default(PENDING)
+  kycLink              String?
+
+  bankName             String?
+  bankAccountNumber    String?
+  bankIfsc             String?
+
+  receivedTransactions Transaction[]       @relation("recipientTransactions")
+
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
+
+  @@index([createdByUserId])
+  @@index([zynkEntityId])
+  @@unique([createdByUserId, emailHash])
+  @@map("recipients")
 }
 
 enum IdempotencyStatus {
@@ -245,8 +296,10 @@ model Transaction {
   id                String            @id @default(uuid()) @db.Uuid
   senderId          String            @db.Uuid
   sender            User              @relation("sentTransactions", fields: [senderId], references: [id], onDelete: Restrict)
-  receiverId        String            @db.Uuid
-  receiver          User              @relation("receivedTransactions", fields: [receiverId], references: [id], onDelete: Restrict)
+  receiverId        String?           @db.Uuid
+  receiver          User?             @relation("receivedTransactions", fields: [receiverId], references: [id], onDelete: Restrict)
+  recipientId       String?           @db.Uuid
+  recipient         Recipient?        @relation("recipientTransactions", fields: [recipientId], references: [id], onDelete: Restrict)
 
   zynkTransactionId String            @unique
   zynkExecutionId   String?
@@ -270,6 +323,7 @@ model Transaction {
 
   @@index([senderId])
   @@index([receiverId])
+  @@index([recipientId])
   @@index([status])
   @@index([created_at])
   @@map("transactions")

@@ -2,7 +2,7 @@ import express from "express";
 import account from "./account.route";
 import activities from "./activity.routes";
 import addresses from "./address.routes";
-import contacts from "./contact.routes";
+import recipients from "./recipient.routes";
 import devices from "./device.routes";
 import googleMaps from "./google-maps.routes";
 import notifications from "./notification.routes";
@@ -12,13 +12,14 @@ import transfers from "./transfer.routes";
 import users from "./user.routes";
 import zynk from "./zynk.routes";
 import dbUser from "../middlewares/db-user";
+import isApproved from "../middlewares/is-approved";
 
 const router = express.Router();
 
 router.use("/", account);
 router.use("/users", users);
 router.use("/addresses", addresses);
-router.use("/contacts", dbUser, contacts);
+router.use("/recipients", dbUser, isApproved, recipients);
 router.use("/onboarding", onboarding);
 router.use("/referral", referral);
 router.use("/transfers", dbUser, transfers);
