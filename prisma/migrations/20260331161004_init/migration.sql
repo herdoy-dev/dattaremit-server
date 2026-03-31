@@ -8,6 +8,9 @@ CREATE TYPE "user_role" AS ENUM ('ADMIN', 'USER', 'INFLUENCER', 'PROMOTER');
 CREATE TYPE "account_status" AS ENUM ('INITIAL', 'ACTIVE', 'PENDING', 'REJECTED', 'DELETED');
 
 -- CreateEnum
+CREATE TYPE "recipient_kyc_status" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'FAILED');
+
+-- CreateEnum
 CREATE TYPE "idempotency_status" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
 
 -- CreateEnum
@@ -22,6 +25,9 @@ CREATE TYPE "notification_type" AS ENUM ('KYC_APPROVED', 'KYC_REJECTED', 'KYC_FA
 -- CreateEnum
 CREATE TYPE "device_platform" AS ENUM ('IOS', 'ANDROID');
 
+-- CreateEnum
+CREATE TYPE "transaction_status" AS ENUM ('SIMULATED', 'ACCEPTED', 'PROCESSING', 'COMPLETED', 'FAILED');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" UUID NOT NULL,
@@ -32,7 +38,6 @@ CREATE TABLE "users" (
     "zynkDepositAccountId" TEXT,
     "lastName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
-    "emailHash" TEXT NOT NULL,
     "phoneNumberPrefix" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
     "dateOfBirth" TEXT NOT NULL,
@@ -65,6 +70,36 @@ CREATE TABLE "addresses" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "addresses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "recipients" (
+    "id" UUID NOT NULL,
+    "createdByUserId" UUID NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "phoneNumberPrefix" TEXT NOT NULL,
+    "phoneNumber" TEXT NOT NULL,
+    "dateOfBirth" TEXT NOT NULL,
+    "nationality" TEXT NOT NULL DEFAULT 'IN',
+    "addressLine1" TEXT NOT NULL,
+    "addressLine2" TEXT,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "country" TEXT NOT NULL DEFAULT 'IN',
+    "postalCode" TEXT NOT NULL,
+    "zynkEntityId" TEXT,
+    "zynkDepositAccountId" TEXT,
+    "kycStatus" "recipient_kyc_status" NOT NULL DEFAULT 'PENDING',
+    "kycLink" TEXT,
+    "bankName" TEXT,
+    "bankAccountNumber" TEXT,
+    "bankIfsc" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "recipients_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -131,11 +166,37 @@ CREATE TABLE "user_devices" (
     CONSTRAINT "user_devices_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "transactions" (
+    "id" UUID NOT NULL,
+    "senderId" UUID NOT NULL,
+    "receiverId" UUID,
+    "recipientId" UUID,
+    "zynkTransactionId" TEXT NOT NULL,
+    "zynkExecutionId" TEXT,
+    "sendAmount" DECIMAL(18,6) NOT NULL,
+    "sendCurrency" TEXT NOT NULL DEFAULT 'USD',
+    "receiveAmount" DECIMAL(18,6),
+    "receiveCurrency" TEXT NOT NULL DEFAULT 'INR',
+    "exchangeRate" DECIMAL(18,6),
+    "totalFees" DECIMAL(18,6),
+    "feeCurrency" TEXT DEFAULT 'USD',
+    "status" "transaction_status" NOT NULL DEFAULT 'SIMULATED',
+    "depositMemo" TEXT,
+    "simulateResponse" JSONB,
+    "transferResponse" JSONB,
+    "failureReason" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "transactions_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_clerkUserId_key" ON "users"("clerkUserId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_emailHash_key" ON "users"("emailHash");
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_referCode_key" ON "users"("referCode");
@@ -154,6 +215,15 @@ CREATE INDEX "addresses_userId_idx" ON "addresses"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "addresses_userId_type_key" ON "addresses"("userId", "type");
+
+-- CreateIndex
+CREATE INDEX "recipients_createdByUserId_idx" ON "recipients"("createdByUserId");
+
+-- CreateIndex
+CREATE INDEX "recipients_zynkEntityId_idx" ON "recipients"("zynkEntityId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "recipients_createdByUserId_email_key" ON "recipients"("createdByUserId", "email");
 
 -- CreateIndex
 CREATE INDEX "activities_userId_idx" ON "activities"("userId");
@@ -188,8 +258,29 @@ CREATE UNIQUE INDEX "user_devices_expoPushToken_key" ON "user_devices"("expoPush
 -- CreateIndex
 CREATE INDEX "user_devices_userId_idx" ON "user_devices"("userId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "transactions_zynkTransactionId_key" ON "transactions"("zynkTransactionId");
+
+-- CreateIndex
+CREATE INDEX "transactions_senderId_idx" ON "transactions"("senderId");
+
+-- CreateIndex
+CREATE INDEX "transactions_receiverId_idx" ON "transactions"("receiverId");
+
+-- CreateIndex
+CREATE INDEX "transactions_recipientId_idx" ON "transactions"("recipientId");
+
+-- CreateIndex
+CREATE INDEX "transactions_status_idx" ON "transactions"("status");
+
+-- CreateIndex
+CREATE INDEX "transactions_created_at_idx" ON "transactions"("created_at");
+
 -- AddForeignKey
 ALTER TABLE "addresses" ADD CONSTRAINT "addresses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "recipients" ADD CONSTRAINT "recipients_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "activities" ADD CONSTRAINT "activities_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -199,3 +290,12 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "user_devices" ADD CONSTRAINT "user_devices_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_receiverId_fkey" FOREIGN KEY ("receiverId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_recipientId_fkey" FOREIGN KEY ("recipientId") REFERENCES "recipients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
