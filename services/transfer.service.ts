@@ -9,6 +9,7 @@ import notificationLogger from "../lib/notification-logger";
 import AppError from "../lib/AppError";
 import prismaClient from "../lib/prisma-client";
 import zynkRepository from "../repositories/zynk.repository";
+import appSettingService from "./app-setting.service";
 
 interface RecipientRecord {
   id: string;
@@ -20,6 +21,35 @@ interface RecipientRecord {
 }
 
 class TransferService {
+  private async checkWeeklyLimit(senderId: string, newAmount: number): Promise<void> {
+    const weeklyLimit = await appSettingService.getWeeklyTransferLimitUsd();
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const result = await prismaClient.transaction.aggregate({
+      where: {
+        senderId,
+        created_at: { gte: sevenDaysAgo },
+        status: { notIn: ["FAILED", "SIMULATED"] },
+      },
+      _sum: { sendAmount: true },
+    });
+
+    const weeklyTotal = Number(result._sum.sendAmount ?? 0);
+
+    if (weeklyTotal + newAmount > weeklyLimit) {
+      const remaining = Math.max(0, weeklyLimit - weeklyTotal);
+      throw new AppError(
+        400,
+        `This transfer would exceed your weekly limit of $${weeklyLimit.toLocaleString()}. ` +
+          `You have sent $${weeklyTotal.toLocaleString()} in the last 7 days. ` +
+          `Remaining allowance: $${remaining.toLocaleString()}.`,
+        "WEEKLY_LIMIT_EXCEEDED",
+      );
+    }
+  }
+
   async sendMoneyToRecipient(
     senderId: string,
     recipient: RecipientRecord,
@@ -54,6 +84,9 @@ class TransferService {
             "Recipient does not have a linked bank account.",
           );
         }
+
+        // Check weekly transfer limit
+        await this.checkWeeklyLimit(senderId, amount);
 
         // Generate unique transaction ID
         const zynkTransactionId = `txn_${crypto.randomUUID().replace(/-/g, "")}`;

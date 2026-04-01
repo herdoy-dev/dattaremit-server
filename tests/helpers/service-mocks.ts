@@ -69,6 +69,15 @@ jest.mock("../../services/admin-promoter.service", () => ({
   },
 }));
 
+jest.mock("../../services/app-setting.service", () => ({
+  __esModule: true,
+  default: {
+    getWeeklyTransferLimitUsd: jest.fn(),
+    updateSetting: jest.fn(),
+    getAllSettings: jest.fn(),
+  },
+}));
+
 jest.mock("../../services/zynk.service", () => ({
   __esModule: true,
   default: {
@@ -193,6 +202,7 @@ export const mockActivityService = require("../../services/activity.service").de
 export const mockAdminService = require("../../services/admin.service").default;
 export const mockAdminChartService = require("../../services/admin-chart.service").default;
 export const mockAdminPromoterService = require("../../services/admin-promoter.service").default;
+export const mockAppSettingService = require("../../services/app-setting.service").default;
 export const mockZynkService = require("../../services/zynk.service").default;
 export const mockExchangeRateService = require("../../services/exchange-rate.service").default;
 export const mockUserRepository = require("../../repositories/user.repository").default;

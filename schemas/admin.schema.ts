@@ -138,3 +138,17 @@ export type AdminUpdateUserInput = {
 export type ChangeRoleInput = {
   role: "ADMIN" | "USER" | "INFLUENCER" | "PROMOTER";
 };
+
+export const updateSettingSchema = Joi.object({
+  key: Joi.string().required().messages({
+    "any.required": "Setting key is required",
+  }),
+  value: Joi.string().required().messages({
+    "any.required": "Setting value is required",
+  }),
+});
+
+export type UpdateSettingInput = {
+  key: string;
+  value: string;
+};

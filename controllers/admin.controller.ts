@@ -10,11 +10,13 @@ import validate from "../lib/validate";
 import adminService from "../services/admin.service";
 import adminChartService from "../services/admin-chart.service";
 import adminPromoterService from "../services/admin-promoter.service";
+import appSettingService from "../services/app-setting.service";
 import {
   adminCreateUserSchema,
   adminUpdateUserSchema,
   adminCreatePromoterSchema,
   changeRoleSchema,
+  updateSettingSchema,
 } from "../schemas/admin.schema";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -206,6 +208,22 @@ class AdminController {
     res
       .status(200)
       .json(new APIResponse(true, "ACH push setting updated successfully", user));
+  });
+
+  getSettings = asyncHandler(async (_req: Request, res: Response) => {
+    const settings = await appSettingService.getAllSettings();
+    res
+      .status(200)
+      .json(new APIResponse(true, "Settings retrieved successfully", settings));
+  });
+
+  updateSetting = asyncHandler(async (req: Request, res: Response) => {
+    const { key, value } = validate(updateSettingSchema, req.body);
+    const actingAdminId = (req as AuthRequest).user.id;
+    const setting = await appSettingService.updateSetting(key, value, actingAdminId);
+    res
+      .status(200)
+      .json(new APIResponse(true, "Setting updated successfully", setting));
   });
 
   getReferralStats = asyncHandler(async (req: Request, res: Response) => {

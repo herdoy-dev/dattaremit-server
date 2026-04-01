@@ -22,6 +22,10 @@ router.get("/charts/account-status", adminController.getAccountStatusChart as Re
 router.get("/charts/kyc", adminController.getKycActivityChart as RequestHandler);
 router.get("/referral-stats", adminController.getReferralStats as RequestHandler);
 
+// Settings routes
+router.get("/settings", adminController.getSettings as RequestHandler);
+router.put("/settings", adminController.updateSetting as RequestHandler);
+
 // Marketing routes
 router.get("/marketing/promoters/preview-refer-code", adminController.previewReferCode as RequestHandler);
 router.post("/marketing/promoters", adminController.createPromoter as RequestHandler);

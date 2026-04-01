@@ -1,4 +1,4 @@
-import { mockUserService, mockAdminService, mockAdminChartService, mockAdminPromoterService } from "./helpers/service-mocks";
+import { mockUserService, mockAdminService, mockAdminChartService, mockAdminPromoterService, mockAppSettingService } from "./helpers/service-mocks";
 import request from "supertest";
 import { createTestApp } from "./helpers/app";
 import { AUTH_TOKEN } from "./helpers/auth";
@@ -356,6 +356,65 @@ describe("Admin Endpoints", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+    });
+  });
+
+  describe("Settings Endpoints", () => {
+    it("GET /api/admin/settings should return settings", async () => {
+      mockAppSettingService.getAllSettings.mockResolvedValueOnce({
+        WEEKLY_TRANSFER_LIMIT_USD: {
+          value: "10000",
+          updatedBy: null,
+          updated_at: null,
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/admin/settings")
+        .set("x-auth-token", AUTH_TOKEN);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.WEEKLY_TRANSFER_LIMIT_USD.value).toBe("10000");
+    });
+
+    it("PUT /api/admin/settings should update a setting", async () => {
+      mockAppSettingService.updateSetting.mockResolvedValueOnce({
+        id: "setting-uuid",
+        key: "WEEKLY_TRANSFER_LIMIT_USD",
+        value: "5000",
+        updatedBy: "admin-uuid",
+        updated_at: new Date().toISOString(),
+      });
+
+      const res = await request(app)
+        .put("/api/admin/settings")
+        .set("x-auth-token", AUTH_TOKEN)
+        .send({ key: "WEEKLY_TRANSFER_LIMIT_USD", value: "5000" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe("Setting updated successfully");
+    });
+
+    it("PUT /api/admin/settings should return 400 without key", async () => {
+      const res = await request(app)
+        .put("/api/admin/settings")
+        .set("x-auth-token", AUTH_TOKEN)
+        .send({ value: "5000" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it("PUT /api/admin/settings should return 400 without value", async () => {
+      const res = await request(app)
+        .put("/api/admin/settings")
+        .set("x-auth-token", AUTH_TOKEN)
+        .send({ key: "WEEKLY_TRANSFER_LIMIT_USD" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
   });
 

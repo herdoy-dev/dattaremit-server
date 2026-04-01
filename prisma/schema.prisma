@@ -326,3 +326,14 @@ model Transaction {
   @@index([created_at])
   @@map("transactions")
 }
+
+model AppSetting {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique
+  value      String
+  updatedBy  String?  @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("app_settings")
+}
