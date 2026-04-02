@@ -15,7 +15,7 @@
     "jest": "^30.2.0",
     "prisma": "^7.6.0",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.4.6"
+    "ts-jest": "^29.4.9"
   },
   "peerDependencies": {
     "typescript": "^6.0.2"
@@ -30,29 +30,29 @@
     "troubleshoot": "bun run scripts/troubleshoot.ts"
   },
   "dependencies": {
-    "@clerk/express": "^1.7.59",
+    "@clerk/express": "^1.7.77",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
-    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
-    "@prisma/instrumentation": "^7.5.0",
-    "@sentry/node": "^10.45.0",
+    "@prisma/instrumentation": "^7.6.0",
+    "@sentry/node": "^10.47.0",
     "@solana/web3.js": "^1.98.4",
-    "@turnkey/crypto": "^2.8.8",
-    "axios": "^1.13.2",
+    "@turnkey/crypto": "^2.8.14",
+    "axios": "^1.14.0",
     "bs58check": "^4.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
     "elliptic": "^6.6.1",
     "ethers": "^6.16.0",
     "expo-server-sdk": "^6.1.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
+    "express-rate-limit": "^8.3.2",
     "helmet": "^8.1.0",
     "hpke-js": "^1.6.5",
-    "joi": "^18.0.2",
-    "pg": "^8.16.3",
-    "resend": "^6.9.3",
+    "joi": "^18.1.2",
+    "pg": "^8.20.0",
+    "resend": "^6.10.0",
     "svix": "^1.89.0",
     "winston": "^3.19.0"
   }
